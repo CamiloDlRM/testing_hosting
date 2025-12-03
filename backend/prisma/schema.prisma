@@ -1,0 +1,75 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  nombre    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relación 1:1 con Aplicacion (un usuario solo puede tener UNA app)
+  aplicacion Aplicacion?
+
+  @@map("users")
+}
+
+model Aplicacion {
+  id               String   @id @default(uuid())
+  userId           String   @unique // Relación 1:1 con User
+  coolifyAppId     String?  @unique // ID de la app en Coolify
+  nombre           String
+  repositorioGit   String
+  estado           EstadoApp @default(PENDING)
+  variablesEntorno Json?    // Almacenamos las variables como JSON
+  ultimoDeployment DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relaciones
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deployments Deployment[]
+
+  @@map("aplicaciones")
+}
+
+model Deployment {
+  id           String          @id @default(uuid())
+  aplicacionId String
+  version      String
+  estado       EstadoDeployment @default(PENDING)
+  logs         String?         @db.Text
+  timestamp    DateTime        @default(now())
+
+  // Relación
+  aplicacion Aplicacion @relation(fields: [aplicacionId], references: [id], onDelete: Cascade)
+
+  @@map("deployments")
+  @@index([aplicacionId])
+}
+
+enum EstadoApp {
+  PENDING
+  DEPLOYING
+  RUNNING
+  STOPPED
+  FAILED
+  DELETED
+}
+
+enum EstadoDeployment {
+  PENDING
+  IN_PROGRESS
+  SUCCESS
+  FAILED
+}

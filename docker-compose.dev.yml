@@ -1,0 +1,86 @@
+version: '3.8'
+
+# Docker Compose para desarrollo con hot-reload
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: coolify-wrapper-db-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-coolify_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-coolify_password}
+      POSTGRES_DB: ${POSTGRES_DB:-coolify_wrapper}
+    volumes:
+      - postgres_data_dev:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    networks:
+      - coolify-network-dev
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-coolify_user}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend API (Development mode with hot reload)
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    container_name: coolify-wrapper-backend-dev
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      PORT: 3001
+      DATABASE_URL: postgresql://${POSTGRES_USER:-coolify_user}:${POSTGRES_PASSWORD:-coolify_password}@postgres:5432/${POSTGRES_DB:-coolify_wrapper}?schema=public
+      JWT_SECRET: ${JWT_SECRET:-dev_jwt_secret}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+      COOLIFY_API_URL: ${COOLIFY_API_URL}
+      COOLIFY_API_TOKEN: ${COOLIFY_API_TOKEN}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
+    ports:
+      - "${BACKEND_PORT:-3001}:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - coolify-network-dev
+    volumes:
+      - ./backend/src:/app/src:ro
+      - ./backend/prisma:/app/prisma:ro
+      - backend_node_modules:/app/node_modules
+    command: npm run dev
+
+  # Frontend (Development mode with hot reload)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: coolify-wrapper-frontend-dev
+    restart: unless-stopped
+    environment:
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:3001/api}
+    ports:
+      - "${FRONTEND_PORT:-5173}:5173"
+    depends_on:
+      - backend
+    networks:
+      - coolify-network-dev
+    volumes:
+      - ./frontend/src:/app/src:ro
+      - ./frontend/index.html:/app/index.html:ro
+      - ./frontend/public:/app/public:ro
+      - frontend_node_modules:/app/node_modules
+    command: npm run dev
+
+volumes:
+  postgres_data_dev:
+    driver: local
+  backend_node_modules:
+  frontend_node_modules:
+
+networks:
+  coolify-network-dev:
+    driver: bridge
