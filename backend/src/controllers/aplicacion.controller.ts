@@ -72,20 +72,27 @@ export const createAplicacion = async (
 
     try {
       // Crear la aplicación en Coolify con configuración completa
-      const coolifyApp = await coolifyService.createApplication({
+      // Solo incluir campos con valores para evitar nulls en thegameplan.json
+      const coolifyConfig: any = {
         name: nombre,
         git_repository: repositorioGit,
         git_branch: ramaBranch || 'main',
         build_pack: buildPack,
-        environment_variables: variablesEntorno,
         ports_exposes: puerto?.toString() || '3000',
-        install_command: installCommand,
-        build_command: buildCommand,
-        start_command: startCommand,
-        base_directory: baseDirectory,
-        publish_directory: publishDirectory,
         is_static: tipoApp === 'STATIC',
-      });
+      };
+
+      // Agregar campos opcionales solo si tienen valores
+      if (installCommand) coolifyConfig.install_command = installCommand;
+      if (buildCommand) coolifyConfig.build_command = buildCommand;
+      if (startCommand) coolifyConfig.start_command = startCommand;
+      if (baseDirectory) coolifyConfig.base_directory = baseDirectory;
+      if (publishDirectory) coolifyConfig.publish_directory = publishDirectory;
+      if (variablesEntorno && Object.keys(variablesEntorno).length > 0) {
+        coolifyConfig.environment_variables = variablesEntorno;
+      }
+
+      const coolifyApp = await coolifyService.createApplication(coolifyConfig);
 
       // Actualizar con el ID de Coolify
       const updatedApp = await prisma.aplicacion.update({

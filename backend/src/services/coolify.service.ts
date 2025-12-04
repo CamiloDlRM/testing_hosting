@@ -64,24 +64,24 @@ class CoolifyService {
         payload.ports_exposes = config.ports_exposes;
       }
 
-      // Agregar campos opcionales solo si tienen valores
-      if (config.install_command) {
+      // Agregar campos opcionales solo si tienen valores (y no son strings vacíos)
+      if (config.install_command && config.install_command.trim() !== '') {
         payload.install_command = config.install_command;
       }
 
-      if (config.build_command) {
+      if (config.build_command && config.build_command.trim() !== '') {
         payload.build_command = config.build_command;
       }
 
-      if (config.start_command) {
+      if (config.start_command && config.start_command.trim() !== '') {
         payload.start_command = config.start_command;
       }
 
-      if (config.base_directory) {
+      if (config.base_directory && config.base_directory.trim() !== '') {
         payload.base_directory = config.base_directory;
       }
 
-      if (config.publish_directory) {
+      if (config.publish_directory && config.publish_directory.trim() !== '') {
         payload.publish_directory = config.publish_directory;
       }
 
@@ -89,9 +89,9 @@ class CoolifyService {
         payload.is_static = true;
       }
 
-      // Dominios
-      if (config.domains && config.domains.length > 0) {
-        payload.domains = config.domains;
+      // Dominios (solo si hay al menos uno)
+      if (config.domains && Array.isArray(config.domains) && config.domains.length > 0) {
+        payload.domains = config.domains.filter(d => d && d.trim() !== '');
       }
 
       const response = await this.api.post('/applications/public', payload);
