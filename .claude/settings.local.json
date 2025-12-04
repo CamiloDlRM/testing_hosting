@@ -4,7 +4,9 @@
       "Bash(chmod:*)",
       "Bash(rm:*)",
       "Bash(npm run build:*)",
-      "Bash(npx tsc)"
+      "Bash(npx tsc)",
+      "WebSearch",
+      "WebFetch(domain:coolify.io)"
     ],
     "deny": [],
     "ask": []

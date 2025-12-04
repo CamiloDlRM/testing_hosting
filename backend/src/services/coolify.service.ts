@@ -7,13 +7,23 @@ import {
 
 class CoolifyService {
   private api: AxiosInstance;
+  private projectUuid: string;
+  private serverUuid: string;
+  private environmentName: string;
 
   constructor() {
     const apiUrl = process.env.COOLIFY_API_URL;
     const apiToken = process.env.COOLIFY_API_TOKEN;
+    this.projectUuid = process.env.COOLIFY_PROJECT_UUID || '';
+    this.serverUuid = process.env.COOLIFY_SERVER_UUID || '';
+    this.environmentName = process.env.COOLIFY_ENVIRONMENT_NAME || 'production';
 
     if (!apiUrl || !apiToken) {
       throw new Error('Coolify API credentials not configured');
+    }
+
+    if (!this.projectUuid || !this.serverUuid) {
+      throw new Error('Coolify project UUID and server UUID must be configured');
     }
 
     this.api = axios.create({
@@ -31,8 +41,29 @@ class CoolifyService {
    */
   async createApplication(config: CoolifyAppConfig): Promise<CoolifyAppResponse> {
     try {
-      const response = await this.api.post('/applications', config);
-      return response.data;
+      const payload = {
+        project_uuid: this.projectUuid,
+        server_uuid: this.serverUuid,
+        environment_name: this.environmentName,
+        name: config.name,
+        git_repository: config.git_repository,
+        git_branch: config.git_branch || 'main',
+        build_pack: config.build_pack || 'nixpacks',
+        ports_exposes: '3000',
+        ...config,
+      };
+
+      const response = await this.api.post('/applications/public', payload);
+
+      // Coolify devuelve { uuid: "..." } en el response
+      return {
+        id: response.data.uuid,
+        name: config.name,
+        status: 'pending',
+        git_repository: config.git_repository,
+        domains: config.domains || [],
+        created_at: new Date().toISOString(),
+      };
     } catch (error: any) {
       console.error('Error creating application in Coolify:', error.response?.data || error.message);
       throw new Error(`Failed to create application in Coolify: ${error.response?.data?.message || error.message}`);
