@@ -29,13 +29,31 @@ export interface LoginDTO {
 export interface CreateAplicacionDTO {
   nombre: string;
   repositorioGit: string;
+  ramaBranch?: string;
   variablesEntorno?: Record<string, string>;
-  tipoAplicacion?: string;
+
+  // Configuración de deployment
+  tipoAplicacion?: 'NIXPACKS' | 'STATIC' | 'DOCKERFILE' | 'DOCKER_COMPOSE';
+  puerto?: number;
+
+  // Comandos personalizados (opcionales)
+  installCommand?: string;
+  buildCommand?: string;
+  startCommand?: string;
+  baseDirectory?: string;
+  publishDirectory?: string;
 }
 
 export interface UpdateAplicacionDTO {
   nombre?: string;
   variablesEntorno?: Record<string, string>;
+  ramaBranch?: string;
+  puerto?: number;
+  installCommand?: string;
+  buildCommand?: string;
+  startCommand?: string;
+  baseDirectory?: string;
+  publishDirectory?: string;
 }
 
 // Tipos para Coolify API
@@ -46,6 +64,15 @@ export interface CoolifyAppConfig {
   build_pack?: string;
   environment_variables?: Record<string, string>;
   domains?: string[];
+
+  // Configuración adicional
+  ports_exposes?: string;
+  install_command?: string;
+  build_command?: string;
+  start_command?: string;
+  base_directory?: string;
+  publish_directory?: string;
+  is_static?: boolean;
 }
 
 export interface CoolifyDeploymentResponse {

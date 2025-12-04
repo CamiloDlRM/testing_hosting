@@ -30,8 +30,22 @@ model Aplicacion {
   coolifyAppId     String?  @unique // ID de la app en Coolify
   nombre           String
   repositorioGit   String
+  ramaBranch       String   @default("main") // Rama de git
   estado           EstadoApp @default(PENDING)
   variablesEntorno Json?    // Almacenamos las variables como JSON
+
+  // Configuración de deployment
+  tipoAplicacion   TipoAplicacion @default(NIXPACKS)
+  buildPack        String   @default("nixpacks") // nixpacks, static, dockerfile, docker-compose
+  puerto           Int      @default(3000)
+
+  // Comandos personalizados (opcionales)
+  installCommand   String?
+  buildCommand     String?
+  startCommand     String?
+  baseDirectory    String?
+  publishDirectory String? // Para apps estáticas
+
   ultimoDeployment DateTime?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
@@ -72,4 +86,11 @@ enum EstadoDeployment {
   IN_PROGRESS
   SUCCESS
   FAILED
+}
+
+enum TipoAplicacion {
+  NIXPACKS      // Auto-detect (Node.js, Python, Go, etc)
+  STATIC        // HTML/CSS/JS estático (Vite build, CRA, etc)
+  DOCKERFILE    // Usa Dockerfile del repo
+  DOCKER_COMPOSE // Usa docker-compose.yml del repo
 }

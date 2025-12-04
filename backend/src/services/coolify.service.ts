@@ -41,7 +41,10 @@ class CoolifyService {
    */
   async createApplication(config: CoolifyAppConfig): Promise<CoolifyAppResponse> {
     try {
-      // Crear payload mínimo con solo campos esenciales
+      // Determinar si es aplicación estática
+      const isStatic = config.build_pack === 'static' || config.is_static === true;
+
+      // Crear payload con campos obligatorios
       const payload: any = {
         project_uuid: this.projectUuid,
         server_uuid: this.serverUuid,
@@ -50,10 +53,39 @@ class CoolifyService {
         git_repository: config.git_repository,
         git_branch: config.git_branch || 'main',
         build_pack: config.build_pack || 'nixpacks',
-        ports_exposes: '3000',
       };
 
-      // Solo agregar campos opcionales si tienen valores válidos
+      // Configurar puertos solo si NO es estático
+      if (!isStatic && config.ports_exposes) {
+        payload.ports_exposes = config.ports_exposes;
+      }
+
+      // Agregar campos opcionales solo si tienen valores
+      if (config.install_command) {
+        payload.install_command = config.install_command;
+      }
+
+      if (config.build_command) {
+        payload.build_command = config.build_command;
+      }
+
+      if (config.start_command) {
+        payload.start_command = config.start_command;
+      }
+
+      if (config.base_directory) {
+        payload.base_directory = config.base_directory;
+      }
+
+      if (config.publish_directory) {
+        payload.publish_directory = config.publish_directory;
+      }
+
+      if (isStatic) {
+        payload.is_static = true;
+      }
+
+      // Dominios
       if (config.domains && config.domains.length > 0) {
         payload.domains = config.domains;
       }
@@ -63,11 +95,13 @@ class CoolifyService {
       // Coolify devuelve { uuid: "..." } en el response
       const appId = response.data.uuid;
 
-      // Configurar variables de entorno (siempre incluir PORT)
-      const envVars = {
-        PORT: '3000',
-        ...(config.environment_variables || {}),
-      };
+      // Configurar variables de entorno
+      const envVars: Record<string, string> = { ...(config.environment_variables || {}) };
+
+      // Solo agregar PORT si no es estático y no está ya definido
+      if (!isStatic && config.ports_exposes && !envVars.PORT) {
+        envVars.PORT = config.ports_exposes;
+      }
 
       if (Object.keys(envVars).length > 0) {
         try {

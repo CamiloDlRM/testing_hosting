@@ -13,7 +13,19 @@ export const createAplicacion = async (
 ) => {
   try {
     const userId = req.user!.id;
-    const { nombre, repositorioGit, variablesEntorno, tipoAplicacion } = req.body;
+    const {
+      nombre,
+      repositorioGit,
+      ramaBranch,
+      variablesEntorno,
+      tipoAplicacion,
+      puerto,
+      installCommand,
+      buildCommand,
+      startCommand,
+      baseDirectory,
+      publishDirectory,
+    } = req.body;
 
     // VERIFICAR: El usuario solo puede tener UNA aplicación
     const existingApp = await prisma.aplicacion.findUnique({
@@ -27,25 +39,52 @@ export const createAplicacion = async (
       });
     }
 
+    // Mapear buildPack según el tipo de aplicación
+    const buildPackMap: Record<string, string> = {
+      NIXPACKS: 'nixpacks',
+      STATIC: 'static',
+      DOCKERFILE: 'dockerfile',
+      DOCKER_COMPOSE: 'dockercompose',
+    };
+
+    const tipoApp = tipoAplicacion || 'NIXPACKS';
+    const buildPack = buildPackMap[tipoApp] || 'nixpacks';
+
     // Crear la aplicación en la base de datos primero (estado PENDING)
     const aplicacion = await prisma.aplicacion.create({
       data: {
         userId,
         nombre,
         repositorioGit,
+        ramaBranch: ramaBranch || 'main',
         variablesEntorno: variablesEntorno || {},
         estado: EstadoApp.PENDING,
+        tipoAplicacion: tipoApp as any,
+        buildPack,
+        puerto: puerto || 3000,
+        installCommand,
+        buildCommand,
+        startCommand,
+        baseDirectory,
+        publishDirectory,
       },
     });
 
     try {
-      // Crear la aplicación en Coolify
+      // Crear la aplicación en Coolify con configuración completa
       const coolifyApp = await coolifyService.createApplication({
         name: nombre,
         git_repository: repositorioGit,
-        git_branch: 'main',
-        build_pack: tipoAplicacion || 'nixpacks',
+        git_branch: ramaBranch || 'main',
+        build_pack: buildPack,
         environment_variables: variablesEntorno,
+        ports_exposes: puerto?.toString() || '3000',
+        install_command: installCommand,
+        build_command: buildCommand,
+        start_command: startCommand,
+        base_directory: baseDirectory,
+        publish_directory: publishDirectory,
+        is_static: tipoApp === 'STATIC',
       });
 
       // Actualizar con el ID de Coolify
@@ -181,7 +220,17 @@ export const updateAplicacion = async (
 ) => {
   try {
     const userId = req.user!.id;
-    const { nombre, variablesEntorno } = req.body;
+    const {
+      nombre,
+      variablesEntorno,
+      ramaBranch,
+      puerto,
+      installCommand,
+      buildCommand,
+      startCommand,
+      baseDirectory,
+      publishDirectory,
+    } = req.body;
 
     const aplicacion = await prisma.aplicacion.findUnique({
       where: { userId },
@@ -215,6 +264,13 @@ export const updateAplicacion = async (
       data: {
         ...(nombre && { nombre }),
         ...(variablesEntorno && { variablesEntorno }),
+        ...(ramaBranch && { ramaBranch }),
+        ...(puerto !== undefined && { puerto }),
+        ...(installCommand !== undefined && { installCommand }),
+        ...(buildCommand !== undefined && { buildCommand }),
+        ...(startCommand !== undefined && { startCommand }),
+        ...(baseDirectory !== undefined && { baseDirectory }),
+        ...(publishDirectory !== undefined && { publishDirectory }),
       },
     });
 

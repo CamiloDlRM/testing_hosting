@@ -155,6 +155,56 @@ export function AppDashboard({ app, onUpdate, onDelete }: AppDashboardProps) {
             )}
           </div>
 
+          {/* Configuración de Deployment */}
+          <div className="border-t pt-4">
+            <h3 className="text-lg font-semibold mb-3">⚙️ Configuración</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+              <div>
+                <p className="text-muted-foreground">Rama</p>
+                <p className="font-medium">{app.ramaBranch || 'main'}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Tipo</p>
+                <p className="font-medium">
+                  {app.tipoAplicacion === 'STATIC' && '📄 Static Site'}
+                  {app.tipoAplicacion === 'NIXPACKS' && '🔄 Auto-detect'}
+                  {app.tipoAplicacion === 'DOCKERFILE' && '🐳 Dockerfile'}
+                  {app.tipoAplicacion === 'DOCKER_COMPOSE' && '🐙 Docker Compose'}
+                </p>
+              </div>
+              {app.tipoAplicacion !== 'STATIC' && (
+                <div>
+                  <p className="text-muted-foreground">Puerto</p>
+                  <p className="font-medium">{app.puerto}</p>
+                </div>
+              )}
+              {app.buildCommand && (
+                <div>
+                  <p className="text-muted-foreground">Build Command</p>
+                  <p className="font-mono text-xs">{app.buildCommand}</p>
+                </div>
+              )}
+              {app.startCommand && (
+                <div>
+                  <p className="text-muted-foreground">Start Command</p>
+                  <p className="font-mono text-xs">{app.startCommand}</p>
+                </div>
+              )}
+              {app.publishDirectory && (
+                <div>
+                  <p className="text-muted-foreground">Publish Directory</p>
+                  <p className="font-mono text-xs">{app.publishDirectory}</p>
+                </div>
+              )}
+              {app.baseDirectory && (
+                <div>
+                  <p className="text-muted-foreground">Base Directory</p>
+                  <p className="font-mono text-xs">{app.baseDirectory}</p>
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Acciones */}
           <div className="flex flex-wrap gap-2">
             {canDeploy && (

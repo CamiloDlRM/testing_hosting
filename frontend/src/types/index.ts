@@ -11,8 +11,22 @@ export interface Aplicacion {
   coolifyAppId: string | null;
   nombre: string;
   repositorioGit: string;
+  ramaBranch: string;
   estado: EstadoApp;
   variablesEntorno: Record<string, string> | null;
+
+  // Configuración de deployment
+  tipoAplicacion: TipoAplicacion;
+  buildPack: string;
+  puerto: number;
+
+  // Comandos personalizados
+  installCommand?: string | null;
+  buildCommand?: string | null;
+  startCommand?: string | null;
+  baseDirectory?: string | null;
+  publishDirectory?: string | null;
+
   ultimoDeployment: string | null;
   createdAt: string;
   updatedAt: string;
@@ -44,6 +58,13 @@ export enum EstadoDeployment {
   FAILED = 'FAILED',
 }
 
+export enum TipoAplicacion {
+  NIXPACKS = 'NIXPACKS',
+  STATIC = 'STATIC',
+  DOCKERFILE = 'DOCKERFILE',
+  DOCKER_COMPOSE = 'DOCKER_COMPOSE',
+}
+
 export interface LoginCredentials {
   email: string;
   password: string;
@@ -58,13 +79,31 @@ export interface RegisterCredentials {
 export interface CreateAplicacionData {
   nombre: string;
   repositorioGit: string;
+  ramaBranch?: string;
   variablesEntorno?: Record<string, string>;
-  tipoAplicacion?: string;
+
+  // Configuración de deployment
+  tipoAplicacion?: TipoAplicacion;
+  puerto?: number;
+
+  // Comandos personalizados
+  installCommand?: string;
+  buildCommand?: string;
+  startCommand?: string;
+  baseDirectory?: string;
+  publishDirectory?: string;
 }
 
 export interface UpdateAplicacionData {
   nombre?: string;
   variablesEntorno?: Record<string, string>;
+  ramaBranch?: string;
+  puerto?: number;
+  installCommand?: string;
+  buildCommand?: string;
+  startCommand?: string;
+  baseDirectory?: string;
+  publishDirectory?: string;
 }
 
 export interface ApiResponse<T = any> {
