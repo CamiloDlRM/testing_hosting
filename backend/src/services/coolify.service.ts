@@ -94,7 +94,13 @@ class CoolifyService {
         payload.domains = config.domains.filter(d => d && d.trim() !== '');
       }
 
-      const response = await this.api.post('/applications/public', payload);
+      // IMPORTANTE: Limpiar TODOS los valores null, undefined y strings vacíos del payload
+      // para evitar que Coolify los escriba en thegameplan.json
+      const cleanPayload = this.cleanPayload(payload);
+
+      console.log('🚀 Sending to Coolify:', JSON.stringify(cleanPayload, null, 2));
+
+      const response = await this.api.post('/applications/public', cleanPayload);
 
       // Coolify devuelve { uuid: "..." } en el response
       const appId = response.data.uuid;
@@ -241,6 +247,41 @@ class CoolifyService {
       console.error('Error fetching deployment status:', error.response?.data || error.message);
       throw new Error(`Failed to fetch deployment status: ${error.response?.data?.message || error.message}`);
     }
+  }
+
+  /**
+   * Limpiar payload recursivamente eliminando null, undefined y strings vacíos
+   * Esto evita que Coolify escriba valores null en thegameplan.json
+   */
+  private cleanPayload(obj: any): any {
+    if (Array.isArray(obj)) {
+      return obj
+        .map(item => this.cleanPayload(item))
+        .filter(item => item !== null && item !== undefined && item !== '');
+    }
+
+    if (obj !== null && typeof obj === 'object') {
+      const cleaned: any = {};
+      for (const [key, value] of Object.entries(obj)) {
+        // Saltar null, undefined y strings vacíos
+        if (value === null || value === undefined) continue;
+        if (typeof value === 'string' && value.trim() === '') continue;
+
+        // Limpiar recursivamente objetos y arrays
+        if (typeof value === 'object') {
+          const cleanedValue = this.cleanPayload(value);
+          // Solo agregar si el objeto/array resultante no está vacío
+          if (Array.isArray(cleanedValue) && cleanedValue.length === 0) continue;
+          if (!Array.isArray(cleanedValue) && typeof cleanedValue === 'object' && Object.keys(cleanedValue).length === 0) continue;
+          cleaned[key] = cleanedValue;
+        } else {
+          cleaned[key] = value;
+        }
+      }
+      return cleaned;
+    }
+
+    return obj;
   }
 }
 
