@@ -12,8 +12,19 @@ interface CreateAppFormProps {
   onSuccess: () => void;
 }
 
+// Tipo para los presets
+interface PresetConfig {
+  name: string;
+  tipoAplicacion: TipoAplicacion;
+  puerto?: number;
+  buildCommand?: string;
+  startCommand?: string;
+  installCommand?: string;
+  publishDirectory?: string;
+}
+
 // Presets para frameworks populares
-const FRAMEWORK_PRESETS = {
+const FRAMEWORK_PRESETS: Record<string, PresetConfig> = {
   'vite-react': {
     name: 'Vite + React',
     tipoAplicacion: TipoAplicacion.STATIC,
@@ -78,16 +89,16 @@ export function CreateAppForm({ onSuccess }: CreateAppFormProps) {
   };
 
   const applyPreset = (presetKey: string) => {
-    const preset = FRAMEWORK_PRESETS[presetKey as keyof typeof FRAMEWORK_PRESETS];
+    const preset = FRAMEWORK_PRESETS[presetKey];
     if (preset) {
       setFormData({
         ...formData,
         tipoAplicacion: preset.tipoAplicacion,
-        puerto: preset.puerto || 3000,
-        buildCommand: preset.buildCommand || '',
-        startCommand: preset.startCommand || '',
-        installCommand: preset.installCommand || '',
-        publishDirectory: preset.publishDirectory || '',
+        puerto: preset.puerto ?? 3000,
+        buildCommand: preset.buildCommand ?? '',
+        startCommand: preset.startCommand ?? '',
+        installCommand: preset.installCommand ?? '',
+        publishDirectory: preset.publishDirectory ?? '',
       });
     }
   };
