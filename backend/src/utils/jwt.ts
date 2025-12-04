@@ -9,6 +9,7 @@ export interface JWTPayload {
 }
 
 export const generateToken = (payload: JWTPayload): string => {
+  // @ts-ignore - TypeScript tiene problemas con el overload de jwt.sign
   return jwt.sign(payload, JWT_SECRET, {
     expiresIn: JWT_EXPIRES_IN,
   });
