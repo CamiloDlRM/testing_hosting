@@ -37,7 +37,7 @@ const FRAMEWORK_PRESETS: Record<string, PresetConfig> = {
     tipoAplicacion: TipoAplicacion.NIXPACKS,
     puerto: 3000,
     buildCommand: 'npm run build',
-    startCommand: 'npm start',
+    startCommand: 'npx serve -s dist -l 3000',
     installCommand: 'npm install',
   },
   'nextjs': {

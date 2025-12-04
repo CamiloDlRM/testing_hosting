@@ -100,22 +100,15 @@ class CoolifyService {
       const appId = response.data.uuid;
 
       // Configurar variables de entorno
-      const envVars: Record<string, string> = { ...(config.environment_variables || {}) };
+      // NOTA: El endpoint de Coolify para actualizar env vars no está disponible en la API pública
+      // Las variables de entorno deben configurarse manualmente desde el panel de Coolify
+      // o incluirse en el payload inicial (pero Coolify rechaza environment_variables en POST)
 
-      // Solo agregar PORT si no es estático y no está ya definido
-      if (!isStatic && config.ports_exposes && !envVars.PORT) {
-        envVars.PORT = config.ports_exposes;
-      }
+      // Para apps con nixpacks, el puerto se detecta automáticamente o se configura via start_command
+      // Ejemplo: "serve -s dist -l 3000" ya especifica el puerto 3000
 
-      // Para aplicaciones estáticas, no necesitamos agregar variables de entorno de puerto
-
-      if (Object.keys(envVars).length > 0) {
-        try {
-          await this.updateEnvironmentVariables(appId, envVars);
-        } catch (envError) {
-          console.warn('Failed to set environment variables, but app was created:', envError);
-          // No lanzar error, la app se creó exitosamente
-        }
+      if (config.environment_variables && Object.keys(config.environment_variables).length > 0) {
+        console.warn('Environment variables provided but cannot be set via API. Configure them manually in Coolify panel.');
       }
 
       return {
