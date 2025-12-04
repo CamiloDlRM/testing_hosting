@@ -55,8 +55,12 @@ class CoolifyService {
         build_pack: config.build_pack || 'nixpacks',
       };
 
-      // Configurar puertos solo si NO es estático
-      if (!isStatic && config.ports_exposes) {
+      // Configurar puertos
+      // Para apps estáticas, usar puerto 80 (default para servir archivos estáticos)
+      // Para apps con servidor, usar el puerto configurado
+      if (isStatic) {
+        payload.ports_exposes = '80';
+      } else if (config.ports_exposes) {
         payload.ports_exposes = config.ports_exposes;
       }
 
@@ -102,6 +106,8 @@ class CoolifyService {
       if (!isStatic && config.ports_exposes && !envVars.PORT) {
         envVars.PORT = config.ports_exposes;
       }
+
+      // Para aplicaciones estáticas, no necesitamos agregar variables de entorno de puerto
 
       if (Object.keys(envVars).length > 0) {
         try {
