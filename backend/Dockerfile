@@ -41,7 +41,10 @@ COPY prisma ./prisma/
 RUN npm ci --only=production && \
     npm cache clean --force
 
-# Copy Prisma Client from builder
+# Generate Prisma Client in production stage
+RUN npx prisma generate
+
+# Copy Prisma Client from builder (as backup)
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 
 # Copy built application
