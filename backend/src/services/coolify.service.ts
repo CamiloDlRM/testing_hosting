@@ -41,8 +41,8 @@ class CoolifyService {
    */
   async createApplication(config: CoolifyAppConfig): Promise<CoolifyAppResponse> {
     try {
-      // Crear payload completo con configuración necesaria
-      const payload = {
+      // Crear payload mínimo con solo campos esenciales
+      const payload: any = {
         project_uuid: this.projectUuid,
         server_uuid: this.serverUuid,
         environment_name: this.environmentName,
@@ -50,21 +50,13 @@ class CoolifyService {
         git_repository: config.git_repository,
         git_branch: config.git_branch || 'main',
         build_pack: config.build_pack || 'nixpacks',
-
-        // Configuración de puertos
         ports_exposes: '3000',
-        ports_mappings: '3000:3000',
-
-        // Deployment inmediato
-        instant_deploy: false,
-
-        // Deshabilitar health checks por defecto
-        // Las apps del usuario probablemente no tengan endpoint /health
-        health_check_enabled: false,
-
-        // Dominio si se proporciona
-        ...(config.domains && { domains: config.domains }),
       };
+
+      // Solo agregar campos opcionales si tienen valores válidos
+      if (config.domains && config.domains.length > 0) {
+        payload.domains = config.domains;
+      }
 
       const response = await this.api.post('/applications/public', payload);
 
