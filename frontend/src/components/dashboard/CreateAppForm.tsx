@@ -58,6 +58,12 @@ const FRAMEWORK_PRESETS: Record<string, PresetConfig> = {
     puerto: 3000,
     startCommand: 'npm start',
   },
+  'fastapi': {
+    name: 'Python FastAPI',
+    tipoAplicacion: TipoAplicacion.NIXPACKS,
+    puerto: 8000,
+    startCommand: 'uvicorn main:app --host 0.0.0.0 --port 8000',
+  },
 };
 
 export function CreateAppForm({ onSuccess }: CreateAppFormProps) {

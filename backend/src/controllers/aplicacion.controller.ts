@@ -88,6 +88,9 @@ export const createAplicacion = async (
       if (startCommand) coolifyConfig.start_command = startCommand;
       if (baseDirectory) coolifyConfig.base_directory = baseDirectory;
       if (publishDirectory) coolifyConfig.publish_directory = publishDirectory;
+
+      // Variables de entorno: agregar solo las del usuario
+      // NO agregamos COOLIFY_URL ni COOLIFY_FQDN porque Coolify las agrega automáticamente con null
       if (variablesEntorno && Object.keys(variablesEntorno).length > 0) {
         coolifyConfig.environment_variables = variablesEntorno;
       }

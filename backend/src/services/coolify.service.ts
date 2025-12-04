@@ -73,8 +73,13 @@ class CoolifyService {
         payload.build_command = config.build_command;
       }
 
+      // Para Python/FastAPI: SIEMPRE agregar start_command si no es estático
+      // Esto evita que Coolify genere un plan con "python main.py" que no funciona
       if (config.start_command && config.start_command.trim() !== '') {
         payload.start_command = config.start_command;
+      } else if (!isStatic && config.build_pack === 'nixpacks') {
+        // Si no hay start_command y es nixpacks, dejar que Nixpacks detecte automáticamente
+        // pero esto puede causar problemas con FastAPI
       }
 
       if (config.base_directory && config.base_directory.trim() !== '') {
