@@ -119,8 +119,19 @@ class CoolifyService {
    */
   async deployApplication(appId: string): Promise<CoolifyDeploymentResponse> {
     try {
-      const response = await this.api.post(`/applications/${appId}/deploy`);
-      return response.data;
+      const response = await this.api.get('/deploy', {
+        params: { uuid: appId },
+      });
+
+      // Coolify devuelve { deployments: [{ deployment_uuid, resource_uuid, message }] }
+      const deploymentData = response.data.deployments?.[0];
+
+      return {
+        id: deploymentData?.deployment_uuid || appId,
+        status: 'in_progress',
+        created_at: new Date().toISOString(),
+        logs: deploymentData?.message || 'Deployment started',
+      };
     } catch (error: any) {
       console.error('Error deploying application:', error.response?.data || error.message);
       throw new Error(`Failed to deploy application: ${error.response?.data?.message || error.message}`);

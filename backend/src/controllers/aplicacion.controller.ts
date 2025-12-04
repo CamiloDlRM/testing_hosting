@@ -48,23 +48,37 @@ export const createAplicacion = async (
         environment_variables: variablesEntorno,
       });
 
-      // Actualizar con el ID de Coolify y cambiar estado a DEPLOYING
+      // Actualizar con el ID de Coolify
       const updatedApp = await prisma.aplicacion.update({
         where: { id: aplicacion.id },
         data: {
           coolifyAppId: coolifyApp.id,
-          estado: EstadoApp.DEPLOYING,
+          estado: EstadoApp.PENDING,
         },
       });
 
-      // Crear registro de deployment
-      await prisma.deployment.create({
-        data: {
-          aplicacionId: updatedApp.id,
-          version: '1.0.0',
-          estado: 'IN_PROGRESS',
-        },
-      });
+      // Iniciar el deployment en Coolify automáticamente
+      try {
+        await coolifyService.deployApplication(coolifyApp.id);
+
+        // Actualizar estado a DEPLOYING
+        await prisma.aplicacion.update({
+          where: { id: aplicacion.id },
+          data: { estado: EstadoApp.DEPLOYING },
+        });
+
+        // Crear registro de deployment
+        await prisma.deployment.create({
+          data: {
+            aplicacionId: updatedApp.id,
+            version: '1.0.0',
+            estado: 'IN_PROGRESS',
+          },
+        });
+      } catch (deployError: any) {
+        console.warn('Application created but deployment failed to start:', deployError.message);
+        // La app se creó pero no se deployó, mantener estado PENDING
+      }
 
       return res.status(201).json({
         success: true,
@@ -436,12 +450,25 @@ export const getAplicacionLogs = async (
       });
     }
 
-    const logs = await coolifyService.getApplicationLogs(aplicacion.coolifyAppId, lines);
+    try {
+      const logs = await coolifyService.getApplicationLogs(aplicacion.coolifyAppId, lines);
 
-    return res.status(200).json({
-      success: true,
-      data: { logs },
-    });
+      return res.status(200).json({
+        success: true,
+        data: { logs },
+      });
+    } catch (logsError: any) {
+      // Si la app no está corriendo todavía, devolver mensaje informativo
+      if (logsError.message.includes('not running')) {
+        return res.status(200).json({
+          success: true,
+          data: {
+            logs: 'Application is still deploying. Logs will be available once the application is running.\n\nCurrent status: ' + aplicacion.estado
+          },
+        });
+      }
+      throw logsError;
+    }
   } catch (error: any) {
     console.error('Get logs error:', error);
     return res.status(500).json({
