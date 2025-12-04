@@ -1,7 +1,13 @@
 import { Request } from 'express';
 
 // Extendemos el Request de Express para incluir el usuario autenticado
-export interface AuthRequest extends Request {
+// Hacemos el tipo genérico para soportar parámetros de ruta, query y body
+export interface AuthRequest<
+  P = any,
+  ResBody = any,
+  ReqBody = any,
+  ReqQuery = any
+> extends Request<P, ResBody, ReqBody, ReqQuery> {
   user?: {
     id: string;
     email: string;
