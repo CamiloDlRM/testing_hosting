@@ -41,6 +41,7 @@ class CoolifyService {
    */
   async createApplication(config: CoolifyAppConfig): Promise<CoolifyAppResponse> {
     try {
+      // Crear payload sin environment_variables (se configuran después de crear la app)
       const payload = {
         project_uuid: this.projectUuid,
         server_uuid: this.serverUuid,
@@ -50,14 +51,27 @@ class CoolifyService {
         git_branch: config.git_branch || 'main',
         build_pack: config.build_pack || 'nixpacks',
         ports_exposes: '3000',
-        ...config,
+        // NO incluir environment_variables en la creación
+        ...(config.domains && { domains: config.domains }),
       };
 
       const response = await this.api.post('/applications/public', payload);
 
       // Coolify devuelve { uuid: "..." } en el response
+      const appId = response.data.uuid;
+
+      // Si hay variables de entorno, configurarlas después de crear la app
+      if (config.environment_variables && Object.keys(config.environment_variables).length > 0) {
+        try {
+          await this.updateEnvironmentVariables(appId, config.environment_variables);
+        } catch (envError) {
+          console.warn('Failed to set environment variables, but app was created:', envError);
+          // No lanzar error, la app se creó exitosamente
+        }
+      }
+
       return {
-        id: response.data.uuid,
+        id: appId,
         name: config.name,
         status: 'pending',
         git_repository: config.git_repository,
