@@ -3,6 +3,7 @@ import { AuthRequest, CreateAplicacionDTO, UpdateAplicacionDTO, ApiResponse } fr
 import prisma from '../utils/prisma';
 import coolifyService from '../services/coolify.service';
 import { EstadoApp } from '@prisma/client';
+import { generateDomain } from '../utils/domain';
 
 /**
  * Crear una nueva aplicación (solo si el usuario no tiene una)
@@ -39,6 +40,22 @@ export const createAplicacion = async (
       });
     }
 
+    // Obtener el usuario para generar el dominio
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { nombre: true }
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
+
+    // Generar dominio: nombre_app.nombre_user.hostingroble.com
+    const dominio = generateDomain(nombre, user.nombre);
+
     // Mapear buildPack según el tipo de aplicación
     const buildPackMap: Record<string, string> = {
       NIXPACKS: 'nixpacks',
@@ -55,6 +72,7 @@ export const createAplicacion = async (
       data: {
         userId,
         nombre,
+        dominio, // Guardar el dominio generado
         repositorioGit,
         ramaBranch: ramaBranch || 'main',
         variablesEntorno: variablesEntorno || {},
@@ -80,6 +98,7 @@ export const createAplicacion = async (
         build_pack: buildPack,
         ports_exposes: puerto?.toString() || '3000',
         is_static: tipoApp === 'STATIC',
+        domains: [dominio], // Agregar el dominio generado
       };
 
       // Agregar campos opcionales solo si tienen valores

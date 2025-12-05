@@ -15,6 +15,9 @@ import {
   AlertCircle,
   Rocket,
   FileText,
+  ExternalLink,
+  Globe,
+  Copy,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -31,6 +34,16 @@ export function AppDashboard({ app, onUpdate, onDelete }: AppDashboardProps) {
   const [showLogs, setShowLogs] = useState(false);
   const [logs, setLogs] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [copiedDomain, setCopiedDomain] = useState(false);
+
+  const copyDomainToClipboard = () => {
+    if (app.dominio) {
+      const fullUrl = `https://${app.dominio}`;
+      navigator.clipboard.writeText(fullUrl);
+      setCopiedDomain(true);
+      setTimeout(() => setCopiedDomain(false), 2000);
+    }
+  };
 
   const handleAction = async (
     action: () => Promise<any>,
@@ -135,6 +148,53 @@ export function AppDashboard({ app, onUpdate, onDelete }: AppDashboardProps) {
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>{error}</AlertDescription>
             </Alert>
+          )}
+
+          {/* URL de la Aplicación */}
+          {app.dominio && (
+            <div className="bg-gradient-to-r from-purple-50 to-pink-50 border-2 border-purple-200 rounded-lg p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Globe className="h-5 w-5 text-purple-600" />
+                <p className="text-sm font-medium text-purple-900">URL de tu aplicación</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 bg-white px-4 py-2 rounded border border-purple-200 text-purple-900 font-mono text-sm">
+                  https://{app.dominio}
+                </code>
+                <Button
+                  onClick={copyDomainToClipboard}
+                  variant="outline"
+                  size="sm"
+                  className="border-purple-300 hover:bg-purple-100"
+                >
+                  {copiedDomain ? (
+                    <>
+                      <span className="text-green-600">✓ Copiado</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-4 w-4 mr-2" />
+                      Copiar
+                    </>
+                  )}
+                </Button>
+                <Button
+                  onClick={() => window.open(`https://${app.dominio}`, '_blank')}
+                  variant="default"
+                  size="sm"
+                  className="bg-purple-600 hover:bg-purple-700"
+                  disabled={app.estado !== EstadoApp.RUNNING}
+                >
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  Abrir
+                </Button>
+              </div>
+              {app.estado !== EstadoApp.RUNNING && (
+                <p className="text-xs text-purple-600 mt-2">
+                  ℹ️ La aplicación debe estar en estado RUNNING para poder acceder
+                </p>
+              )}
+            </div>
           )}
 
           {/* Información de la aplicación */}

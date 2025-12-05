@@ -10,6 +10,7 @@ export interface Aplicacion {
   userId: string;
   coolifyAppId: string | null;
   nombre: string;
+  dominio: string | null; // URL de la app: nombre_app.nombre_user.hostingroble.com
   repositorioGit: string;
   ramaBranch: string;
   estado: EstadoApp;

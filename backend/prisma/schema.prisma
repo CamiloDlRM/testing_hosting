@@ -29,6 +29,7 @@ model Aplicacion {
   userId           String   @unique // Relación 1:1 con User
   coolifyAppId     String?  @unique // ID de la app en Coolify
   nombre           String
+  dominio          String?  // URL de la app: nombre_app.nombre_user.hostingroble.com
   repositorioGit   String
   ramaBranch       String   @default("main") // Rama de git
   estado           EstadoApp @default(PENDING)
