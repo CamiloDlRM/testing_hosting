@@ -154,8 +154,8 @@ class CoolifyService {
   }
 
   /**
-   * Actualizar variables de entorno de una aplicación
-   * NOTA: Coolify requiere un PATCH por cada variable
+   * Crear/Actualizar variables de entorno de una aplicación
+   * NOTA: Coolify requiere un POST por cada variable para crearlas
    */
   async updateEnvironmentVariables(
     appId: string,
@@ -164,7 +164,7 @@ class CoolifyService {
     try {
       console.log(`📝 Enviando variables de entorno a Coolify para app ${appId}:`);
 
-      // Coolify requiere enviar una variable a la vez
+      // Coolify requiere enviar una variable a la vez usando POST para crear
       for (const [key, value] of Object.entries(variables)) {
         console.log(`  → ${key}=${value}`);
         const payload = {
@@ -177,7 +177,8 @@ class CoolifyService {
         };
 
         try {
-          const response = await this.api.patch(`/applications/${appId}/envs`, payload);
+          // Usar POST para crear la variable (no PATCH)
+          const response = await this.api.post(`/applications/${appId}/envs`, payload);
           console.log(`  ✅ ${key} configurada - Status: ${response.status}`);
         } catch (envError: any) {
           console.error(`  ❌ Error al configurar ${key}:`, envError.response?.data || envError.message);
