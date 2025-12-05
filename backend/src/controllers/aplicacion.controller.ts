@@ -214,13 +214,15 @@ export const getMyAplicacion = async (
         });
 
         // Mapear estado de Coolify a nuestro estado
-        // Coolify puede devolver: running, exited, stopped, starting, restarting, deploying, failed
+        // Coolify puede devolver: running, running:unknown, running:healthy, exited, stopped, starting, restarting, deploying, failed
         let estadoActualizado = aplicacion.estado;
         const coolifyStatus = coolifyApp.status?.toLowerCase() || '';
 
-        if (coolifyStatus === 'running') {
+        // IMPORTANTE: Coolify puede devolver "running:unknown", "running:healthy", etc.
+        // Por eso usamos startsWith() en lugar de comparación exacta
+        if (coolifyStatus.startsWith('running')) {
           estadoActualizado = EstadoApp.RUNNING;
-        } else if (coolifyStatus === 'exited') {
+        } else if (coolifyStatus.startsWith('exited')) {
           // IMPORTANTE: Coolify a veces muestra "exited" aunque la app esté corriendo
           // Si tiene dominio configurado y antes estaba RUNNING, asumir que sigue RUNNING
           if (aplicacion.dominio && aplicacion.estado === EstadoApp.RUNNING) {
@@ -228,14 +230,14 @@ export const getMyAplicacion = async (
           } else {
             estadoActualizado = EstadoApp.STOPPED;
           }
-        } else if (coolifyStatus === 'stopped') {
+        } else if (coolifyStatus.startsWith('stopped')) {
           estadoActualizado = EstadoApp.STOPPED;
-        } else if (coolifyStatus === 'starting' || coolifyStatus === 'deploying') {
+        } else if (coolifyStatus.startsWith('starting') || coolifyStatus.startsWith('deploying')) {
           estadoActualizado = EstadoApp.DEPLOYING;
-        } else if (coolifyStatus === 'restarting') {
+        } else if (coolifyStatus.startsWith('restarting')) {
           // Si está reiniciando, mantener como RUNNING ya que es funcional
           estadoActualizado = EstadoApp.RUNNING;
-        } else if (coolifyStatus === 'failed' || coolifyStatus === 'error') {
+        } else if (coolifyStatus.startsWith('failed') || coolifyStatus.startsWith('error')) {
           estadoActualizado = EstadoApp.FAILED;
         }
 
