@@ -141,7 +141,7 @@ export const getMe = async (req: any, res: Response<ApiResponse>) => {
         email: true,
         nombre: true,
         createdAt: true,
-        aplicacion: {
+        aplicaciones: {
           select: {
             id: true,
             nombre: true,
