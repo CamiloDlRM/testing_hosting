@@ -162,20 +162,30 @@ class CoolifyService {
     variables: Record<string, string>
   ): Promise<void> {
     try {
+      console.log(`📝 Enviando variables de entorno a Coolify para app ${appId}:`);
+
       // Coolify requiere enviar una variable a la vez
-      const promises = Object.entries(variables).map(([key, value]) =>
-        this.api.patch(`/applications/${appId}/envs`, {
+      for (const [key, value] of Object.entries(variables)) {
+        console.log(`  → ${key}=${value}`);
+        const payload = {
           key,
           value,
           is_preview: false,
           is_literal: false,
           is_multiline: false,
           is_shown_once: false,
-        })
-      );
+        };
 
-      await Promise.all(promises);
-      console.log(`✅ ${promises.length} variables de entorno configuradas en Coolify`);
+        try {
+          const response = await this.api.patch(`/applications/${appId}/envs`, payload);
+          console.log(`  ✅ ${key} configurada - Status: ${response.status}`);
+        } catch (envError: any) {
+          console.error(`  ❌ Error al configurar ${key}:`, envError.response?.data || envError.message);
+          throw envError;
+        }
+      }
+
+      console.log(`✅ ${Object.keys(variables).length} variables de entorno configuradas en Coolify`);
     } catch (error: any) {
       console.error('Error updating environment variables:', error.response?.data || error.message);
       throw new Error(`Failed to update environment variables: ${error.response?.data?.message || error.message}`);

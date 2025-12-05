@@ -129,17 +129,22 @@ export const createAplicacion = async (
       // La API de Coolify no acepta env vars en el endpoint de creación
       if (variablesEntorno && Object.keys(variablesEntorno).length > 0) {
         try {
-          console.log(`🔧 Configurando ${Object.keys(variablesEntorno).length} variables de entorno para app ${nombre}`);
+          console.log(`🔧 Configurando ${Object.keys(variablesEntorno).length} variables de entorno para app ${nombre}:`, variablesEntorno);
           await coolifyService.updateEnvironmentVariables(coolifyApp.id, variablesEntorno);
           console.log('✅ Variables de entorno configuradas correctamente');
+
+          // Esperar 2 segundos para asegurar que Coolify procesó las variables
+          await new Promise(resolve => setTimeout(resolve, 2000));
         } catch (envError: any) {
-          console.warn('⚠️ No se pudieron configurar las variables de entorno automáticamente:', envError.message);
+          console.error('❌ Error al configurar variables de entorno:', envError.message);
+          console.error('Response:', envError.response?.data);
           // No fallar la creación de la app por esto, el usuario puede configurarlas manualmente
         }
       }
 
       // Iniciar el deployment en Coolify automáticamente
       try {
+        console.log(`🚀 Iniciando deployment de app ${nombre} (ID: ${coolifyApp.id})`);
         await coolifyService.deployApplication(coolifyApp.id);
 
         // Actualizar estado a DEPLOYING
