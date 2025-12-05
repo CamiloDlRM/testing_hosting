@@ -125,6 +125,19 @@ export const createAplicacion = async (
         },
       });
 
+      // IMPORTANTE: Configurar variables de entorno DESPUÉS de crear la app
+      // La API de Coolify no acepta env vars en el endpoint de creación
+      if (variablesEntorno && Object.keys(variablesEntorno).length > 0) {
+        try {
+          console.log(`🔧 Configurando ${Object.keys(variablesEntorno).length} variables de entorno para app ${nombre}`);
+          await coolifyService.updateEnvironmentVariables(coolifyApp.id, variablesEntorno);
+          console.log('✅ Variables de entorno configuradas correctamente');
+        } catch (envError: any) {
+          console.warn('⚠️ No se pudieron configurar las variables de entorno automáticamente:', envError.message);
+          // No fallar la creación de la app por esto, el usuario puede configurarlas manualmente
+        }
+      }
+
       // Iniciar el deployment en Coolify automáticamente
       try {
         await coolifyService.deployApplication(coolifyApp.id);

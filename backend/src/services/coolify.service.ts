@@ -118,17 +118,9 @@ class CoolifyService {
       // Coolify devuelve { uuid: "..." } en el response
       const appId = response.data.uuid;
 
-      // Configurar variables de entorno
-      // NOTA: El endpoint de Coolify para actualizar env vars no está disponible en la API pública
-      // Las variables de entorno deben configurarse manualmente desde el panel de Coolify
-      // o incluirse en el payload inicial (pero Coolify rechaza environment_variables en POST)
-
-      // Para apps con nixpacks, el puerto se detecta automáticamente o se configura via start_command
-      // Ejemplo: "serve -s dist -l 3000" ya especifica el puerto 3000
-
-      if (config.environment_variables && Object.keys(config.environment_variables).length > 0) {
-        console.warn('Environment variables provided but cannot be set via API. Configure them manually in Coolify panel.');
-      }
+      // NOTA: Las variables de entorno se configuran en el controlador DESPUÉS de crear la app
+      // usando el método updateEnvironmentVariables(), ya que el endpoint POST /applications/public
+      // no acepta environment_variables en el payload inicial
 
       return {
         id: appId,
@@ -163,15 +155,27 @@ class CoolifyService {
 
   /**
    * Actualizar variables de entorno de una aplicación
+   * NOTA: Coolify requiere un PATCH por cada variable
    */
   async updateEnvironmentVariables(
     appId: string,
     variables: Record<string, string>
   ): Promise<void> {
     try {
-      await this.api.patch(`/applications/${appId}/environment`, {
-        environment_variables: variables,
-      });
+      // Coolify requiere enviar una variable a la vez
+      const promises = Object.entries(variables).map(([key, value]) =>
+        this.api.patch(`/applications/${appId}/envs`, {
+          key,
+          value,
+          is_preview: false,
+          is_literal: false,
+          is_multiline: false,
+          is_shown_once: false,
+        })
+      );
+
+      await Promise.all(promises);
+      console.log(`✅ ${promises.length} variables de entorno configuradas en Coolify`);
     } catch (error: any) {
       console.error('Error updating environment variables:', error.response?.data || error.message);
       throw new Error(`Failed to update environment variables: ${error.response?.data?.message || error.message}`);
