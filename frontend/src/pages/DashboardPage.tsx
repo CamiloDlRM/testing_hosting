@@ -12,26 +12,26 @@ import { LogOut, RefreshCw } from 'lucide-react';
 export function DashboardPage() {
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
-  const [app, setApp] = useState<Aplicacion | null>(null);
+  const [apps, setApps] = useState<Aplicacion[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const fetchApp = async () => {
+  const fetchApps = async () => {
     setIsLoading(true);
     setError('');
 
     try {
-      const response = await aplicacionService.getMyAplicacion();
+      const response = await aplicacionService.getMyAplicaciones();
       if (response.success && response.data) {
-        setApp(response.data);
+        setApps(response.data);
       } else {
-        setApp(null);
+        setApps([]);
       }
     } catch (err: any) {
       if (err.response?.status === 404) {
-        setApp(null);
+        setApps([]);
       } else {
-        setError(err.response?.data?.error || 'Error al cargar la aplicación');
+        setError(err.response?.data?.error || 'Error al cargar las aplicaciones');
       }
     } finally {
       setIsLoading(false);
@@ -39,7 +39,7 @@ export function DashboardPage() {
   };
 
   useEffect(() => {
-    fetchApp();
+    fetchApps();
   }, []);
 
   const handleLogout = () => {
@@ -48,12 +48,14 @@ export function DashboardPage() {
   };
 
   const handleAppCreated = () => {
-    fetchApp();
+    fetchApps();
   };
 
   const handleAppDeleted = () => {
-    setApp(null);
+    fetchApps();
   };
+
+  const canCreateMore = apps.length < 2;
 
   if (isLoading) {
     return (
@@ -74,12 +76,12 @@ export function DashboardPage() {
           <div>
             <h1 className="text-4xl font-bold">Dashboard</h1>
             <p className="text-muted-foreground mt-1">
-              Bienvenido, {user?.nombre || 'Usuario'}
+              Bienvenido, {user?.nombre || 'Usuario'} • {apps.length}/2 aplicaciones
             </p>
           </div>
           <div className="flex gap-2">
-            {app && (
-              <Button onClick={fetchApp} variant="outline" size="icon">
+            {apps.length > 0 && (
+              <Button onClick={fetchApps} variant="outline" size="icon">
                 <RefreshCw className="h-4 w-4" />
               </Button>
             )}
@@ -99,25 +101,45 @@ export function DashboardPage() {
           </Card>
         )}
 
-        {!app ? (
-          <div className="max-w-2xl mx-auto">
-            <Card className="mb-6">
-              <CardHeader>
-                <CardTitle>No tienes ninguna aplicación</CardTitle>
-                <CardDescription>
-                  Puedes crear una aplicación para comenzar a deployar.
-                  Recuerda: solo puedes tener una aplicación activa a la vez.
-                </CardDescription>
-              </CardHeader>
-            </Card>
+        {/* Formulario de creación (si puede crear más apps) */}
+        {canCreateMore && (
+          <div className="mb-8">
+            {apps.length === 0 ? (
+              <Card className="mb-6">
+                <CardHeader>
+                  <CardTitle>No tienes ninguna aplicación</CardTitle>
+                  <CardDescription>
+                    Puedes crear hasta 2 aplicaciones para comenzar a deployar.
+                  </CardDescription>
+                </CardHeader>
+              </Card>
+            ) : (
+              <Card className="mb-6 bg-green-50 border-green-200">
+                <CardHeader>
+                  <CardTitle className="text-green-900">Crear otra aplicación</CardTitle>
+                  <CardDescription className="text-green-700">
+                    Puedes crear una aplicación más ({apps.length}/2 usadas)
+                  </CardDescription>
+                </CardHeader>
+              </Card>
+            )}
             <CreateAppForm onSuccess={handleAppCreated} />
           </div>
-        ) : (
-          <AppDashboard
-            app={app}
-            onUpdate={fetchApp}
-            onDelete={handleAppDeleted}
-          />
+        )}
+
+        {/* Lista de aplicaciones */}
+        {apps.length > 0 && (
+          <div className="space-y-6">
+            <h2 className="text-2xl font-bold">Mis Aplicaciones</h2>
+            {apps.map((app) => (
+              <AppDashboard
+                key={app.id}
+                app={app}
+                onUpdate={fetchApps}
+                onDelete={handleAppDeleted}
+              />
+            ))}
+          </div>
         )}
       </div>
     </div>

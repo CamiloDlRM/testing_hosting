@@ -28,15 +28,15 @@ export const createAplicacion = async (
       publishDirectory,
     } = req.body;
 
-    // VERIFICAR: El usuario solo puede tener UNA aplicación
-    const existingApp = await prisma.aplicacion.findUnique({
+    // VERIFICAR: El usuario solo puede tener un MÁXIMO de 2 aplicaciones
+    const existingApps = await prisma.aplicacion.findMany({
       where: { userId },
     });
 
-    if (existingApp) {
+    if (existingApps.length >= 2) {
       return res.status(400).json({
         success: false,
-        error: 'You already have an application. Please delete it before creating a new one.',
+        error: 'You already have 2 applications. Please delete one before creating a new one.',
       });
     }
 
@@ -175,7 +175,7 @@ export const createAplicacion = async (
 };
 
 /**
- * Obtener la aplicación del usuario
+ * Obtener todas las aplicaciones del usuario
  */
 export const getMyAplicacion = async (
   req: AuthRequest,
@@ -184,7 +184,7 @@ export const getMyAplicacion = async (
   try {
     const userId = req.user!.id;
 
-    const aplicacion = await prisma.aplicacion.findUnique({
+    const aplicaciones = await prisma.aplicacion.findMany({
       where: { userId },
       include: {
         deployments: {
@@ -192,77 +192,80 @@ export const getMyAplicacion = async (
           take: 10,
         },
       },
+      orderBy: { createdAt: 'desc' },
     });
 
-    if (!aplicacion) {
+    if (aplicaciones.length === 0) {
       return res.status(404).json({
         success: false,
-        error: 'No application found',
+        error: 'No applications found',
       });
     }
 
-    // Si tiene coolifyAppId, sincronizar estado con Coolify
-    if (aplicacion.coolifyAppId) {
-      try {
-        const coolifyApp = await coolifyService.getApplication(aplicacion.coolifyAppId);
+    // Sincronizar estado con Coolify para cada aplicación
+    for (const aplicacion of aplicaciones) {
+      if (aplicacion.coolifyAppId) {
+        try {
+          const coolifyApp = await coolifyService.getApplication(aplicacion.coolifyAppId);
 
-        // Log para debugging
-        console.log(`📊 Estado de Coolify para app ${aplicacion.nombre}:`, {
-          coolifyStatus: coolifyApp.status,
-          currentStatus: aplicacion.estado,
-          appId: aplicacion.coolifyAppId
-        });
-
-        // Mapear estado de Coolify a nuestro estado
-        // Coolify puede devolver: running, running:unknown, running:healthy, exited, stopped, starting, restarting, deploying, failed
-        let estadoActualizado = aplicacion.estado;
-        const coolifyStatus = coolifyApp.status?.toLowerCase() || '';
-
-        // IMPORTANTE: Coolify puede devolver "running:unknown", "running:healthy", etc.
-        // Por eso usamos startsWith() en lugar de comparación exacta
-        if (coolifyStatus.startsWith('running')) {
-          estadoActualizado = EstadoApp.RUNNING;
-        } else if (coolifyStatus.startsWith('exited')) {
-          // IMPORTANTE: Coolify a veces muestra "exited" aunque la app esté corriendo
-          // Si tiene dominio configurado y antes estaba RUNNING, asumir que sigue RUNNING
-          if (aplicacion.dominio && aplicacion.estado === EstadoApp.RUNNING) {
-            estadoActualizado = EstadoApp.RUNNING;
-          } else {
-            estadoActualizado = EstadoApp.STOPPED;
-          }
-        } else if (coolifyStatus.startsWith('stopped')) {
-          estadoActualizado = EstadoApp.STOPPED;
-        } else if (coolifyStatus.startsWith('starting') || coolifyStatus.startsWith('deploying')) {
-          estadoActualizado = EstadoApp.DEPLOYING;
-        } else if (coolifyStatus.startsWith('restarting')) {
-          // Si está reiniciando, mantener como RUNNING ya que es funcional
-          estadoActualizado = EstadoApp.RUNNING;
-        } else if (coolifyStatus.startsWith('failed') || coolifyStatus.startsWith('error')) {
-          estadoActualizado = EstadoApp.FAILED;
-        }
-
-        console.log(`🔄 Actualizando estado: ${aplicacion.estado} → ${estadoActualizado}`);
-
-        // Actualizar si el estado cambió
-        if (estadoActualizado !== aplicacion.estado) {
-          await prisma.aplicacion.update({
-            where: { id: aplicacion.id },
-            data: { estado: estadoActualizado },
+          // Log para debugging
+          console.log(`📊 Estado de Coolify para app ${aplicacion.nombre}:`, {
+            coolifyStatus: coolifyApp.status,
+            currentStatus: aplicacion.estado,
+            appId: aplicacion.coolifyAppId
           });
-          aplicacion.estado = estadoActualizado;
+
+          // Mapear estado de Coolify a nuestro estado
+          // Coolify puede devolver: running, running:unknown, running:healthy, exited, stopped, starting, restarting, deploying, failed
+          let estadoActualizado = aplicacion.estado;
+          const coolifyStatus = coolifyApp.status?.toLowerCase() || '';
+
+          // IMPORTANTE: Coolify puede devolver "running:unknown", "running:healthy", etc.
+          // Por eso usamos startsWith() en lugar de comparación exacta
+          if (coolifyStatus.startsWith('running')) {
+            estadoActualizado = EstadoApp.RUNNING;
+          } else if (coolifyStatus.startsWith('exited')) {
+            // IMPORTANTE: Coolify a veces muestra "exited" aunque la app esté corriendo
+            // Si tiene dominio configurado y antes estaba RUNNING, asumir que sigue RUNNING
+            if (aplicacion.dominio && aplicacion.estado === EstadoApp.RUNNING) {
+              estadoActualizado = EstadoApp.RUNNING;
+            } else {
+              estadoActualizado = EstadoApp.STOPPED;
+            }
+          } else if (coolifyStatus.startsWith('stopped')) {
+            estadoActualizado = EstadoApp.STOPPED;
+          } else if (coolifyStatus.startsWith('starting') || coolifyStatus.startsWith('deploying')) {
+            estadoActualizado = EstadoApp.DEPLOYING;
+          } else if (coolifyStatus.startsWith('restarting')) {
+            // Si está reiniciando, mantener como RUNNING ya que es funcional
+            estadoActualizado = EstadoApp.RUNNING;
+          } else if (coolifyStatus.startsWith('failed') || coolifyStatus.startsWith('error')) {
+            estadoActualizado = EstadoApp.FAILED;
+          }
+
+          console.log(`🔄 Actualizando estado: ${aplicacion.estado} → ${estadoActualizado}`);
+
+          // Actualizar si el estado cambió
+          if (estadoActualizado !== aplicacion.estado) {
+            await prisma.aplicacion.update({
+              where: { id: aplicacion.id },
+              data: { estado: estadoActualizado },
+            });
+            aplicacion.estado = estadoActualizado;
+          }
+        } catch (coolifyError) {
+          console.error('Error syncing with Coolify:', coolifyError);
+          // No falla la request, solo no sincroniza
         }
-      } catch (coolifyError) {
-        console.error('Error syncing with Coolify:', coolifyError);
-        // No falla la request, solo no sincroniza
       }
     }
 
     return res.status(200).json({
       success: true,
-      data: aplicacion,
+      data: aplicaciones, // Ahora devuelve un array
     });
   } catch (error: any) {
-    console.error('Get application error:', error);
+    console.error('Get applications error:', error);
     return res.status(500).json({
       success: false,
       error: 'Internal server error',
@@ -271,14 +274,15 @@ export const getMyAplicacion = async (
 };
 
 /**
- * Actualizar variables de entorno
+ * Actualizar variables de entorno de una aplicación específica
  */
 export const updateAplicacion = async (
-  req: AuthRequest<{}, {}, UpdateAplicacionDTO>,
+  req: AuthRequest<{ appId: string }, {}, UpdateAplicacionDTO>,
   res: Response<ApiResponse>
 ) => {
   try {
     const userId = req.user!.id;
+    const { appId } = req.params;
     const {
       nombre,
       variablesEntorno,
@@ -291,14 +295,18 @@ export const updateAplicacion = async (
       publishDirectory,
     } = req.body;
 
-    const aplicacion = await prisma.aplicacion.findUnique({
-      where: { userId },
+    // Verificar que la aplicación existe y pertenece al usuario
+    const aplicacion = await prisma.aplicacion.findFirst({
+      where: {
+        id: appId,
+        userId,
+      },
     });
 
     if (!aplicacion) {
       return res.status(404).json({
         success: false,
-        error: 'No application found',
+        error: 'Application not found or does not belong to you',
       });
     }
 
@@ -348,23 +356,27 @@ export const updateAplicacion = async (
 };
 
 /**
- * Deployar/Redeploy la aplicación
+ * Deployar/Redeploy una aplicación específica
  */
 export const deployAplicacion = async (
-  req: AuthRequest,
+  req: AuthRequest<{ appId: string }>,
   res: Response<ApiResponse>
 ) => {
   try {
     const userId = req.user!.id;
+    const { appId } = req.params;
 
-    const aplicacion = await prisma.aplicacion.findUnique({
-      where: { userId },
+    const aplicacion = await prisma.aplicacion.findFirst({
+      where: {
+        id: appId,
+        userId,
+      },
     });
 
     if (!aplicacion || !aplicacion.coolifyAppId) {
       return res.status(404).json({
         success: false,
-        error: 'No application found',
+        error: 'Application not found or does not belong to you',
       });
     }
 
@@ -413,23 +425,27 @@ export const deployAplicacion = async (
 };
 
 /**
- * Detener la aplicación
+ * Detener una aplicación específica
  */
 export const stopAplicacion = async (
-  req: AuthRequest,
+  req: AuthRequest<{ appId: string }>,
   res: Response<ApiResponse>
 ) => {
   try {
     const userId = req.user!.id;
+    const { appId } = req.params;
 
-    const aplicacion = await prisma.aplicacion.findUnique({
-      where: { userId },
+    const aplicacion = await prisma.aplicacion.findFirst({
+      where: {
+        id: appId,
+        userId,
+      },
     });
 
     if (!aplicacion || !aplicacion.coolifyAppId) {
       return res.status(404).json({
         success: false,
-        error: 'No application found',
+        error: 'Application not found or does not belong to you',
       });
     }
 
@@ -454,23 +470,27 @@ export const stopAplicacion = async (
 };
 
 /**
- * Reiniciar la aplicación
+ * Reiniciar una aplicación específica
  */
 export const restartAplicacion = async (
-  req: AuthRequest,
+  req: AuthRequest<{ appId: string }>,
   res: Response<ApiResponse>
 ) => {
   try {
     const userId = req.user!.id;
+    const { appId } = req.params;
 
-    const aplicacion = await prisma.aplicacion.findUnique({
-      where: { userId },
+    const aplicacion = await prisma.aplicacion.findFirst({
+      where: {
+        id: appId,
+        userId,
+      },
     });
 
     if (!aplicacion || !aplicacion.coolifyAppId) {
       return res.status(404).json({
         success: false,
-        error: 'No application found',
+        error: 'Application not found or does not belong to you',
       });
     }
 
@@ -495,23 +515,27 @@ export const restartAplicacion = async (
 };
 
 /**
- * Eliminar la aplicación (permite crear una nueva después)
+ * Eliminar una aplicación específica
  */
 export const deleteAplicacion = async (
-  req: AuthRequest,
+  req: AuthRequest<{ appId: string }>,
   res: Response<ApiResponse>
 ) => {
   try {
     const userId = req.user!.id;
+    const { appId } = req.params;
 
-    const aplicacion = await prisma.aplicacion.findUnique({
-      where: { userId },
+    const aplicacion = await prisma.aplicacion.findFirst({
+      where: {
+        id: appId,
+        userId,
+      },
     });
 
     if (!aplicacion) {
       return res.status(404).json({
         success: false,
-        error: 'No application found',
+        error: 'Application not found or does not belong to you',
       });
     }
 
@@ -544,24 +568,28 @@ export const deleteAplicacion = async (
 };
 
 /**
- * Obtener logs de la aplicación
+ * Obtener logs de una aplicación específica
  */
 export const getAplicacionLogs = async (
-  req: AuthRequest,
+  req: AuthRequest<{ appId: string }>,
   res: Response<ApiResponse>
 ) => {
   try {
     const userId = req.user!.id;
+    const { appId } = req.params;
     const lines = parseInt(req.query.lines as string) || 100;
 
-    const aplicacion = await prisma.aplicacion.findUnique({
-      where: { userId },
+    const aplicacion = await prisma.aplicacion.findFirst({
+      where: {
+        id: appId,
+        userId,
+      },
     });
 
     if (!aplicacion || !aplicacion.coolifyAppId) {
       return res.status(404).json({
         success: false,
-        error: 'No application found',
+        error: 'Application not found or does not belong to you',
       });
     }
 

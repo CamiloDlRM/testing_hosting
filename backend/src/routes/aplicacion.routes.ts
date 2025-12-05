@@ -45,15 +45,15 @@ const updateValidation = [
 ];
 
 // Rutas
-router.get('/', getMyAplicacion);
-router.post('/', criticalOpsLimiter, createValidation, validate, createAplicacion);
-router.patch('/', updateValidation, validate, updateAplicacion);
-router.delete('/', criticalOpsLimiter, deleteAplicacion);
+router.get('/', getMyAplicacion); // GET /aplicaciones - obtener todas las aplicaciones del usuario
+router.post('/', criticalOpsLimiter, createValidation, validate, createAplicacion); // POST /aplicaciones - crear nueva aplicación
 
-// Operaciones de la aplicación
-router.post('/deploy', criticalOpsLimiter, deployAplicacion);
-router.post('/stop', criticalOpsLimiter, stopAplicacion);
-router.post('/restart', criticalOpsLimiter, restartAplicacion);
-router.get('/logs', getAplicacionLogs);
+// Operaciones sobre una aplicación específica (requieren appId)
+router.patch('/:appId', updateValidation, validate, updateAplicacion); // PATCH /aplicaciones/:appId
+router.delete('/:appId', criticalOpsLimiter, deleteAplicacion); // DELETE /aplicaciones/:appId
+router.post('/:appId/deploy', criticalOpsLimiter, deployAplicacion); // POST /aplicaciones/:appId/deploy
+router.post('/:appId/stop', criticalOpsLimiter, stopAplicacion); // POST /aplicaciones/:appId/stop
+router.post('/:appId/restart', criticalOpsLimiter, restartAplicacion); // POST /aplicaciones/:appId/restart
+router.get('/:appId/logs', getAplicacionLogs); // GET /aplicaciones/:appId/logs
 
 export default router;

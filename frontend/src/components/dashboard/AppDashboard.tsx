@@ -64,21 +64,21 @@ export function AppDashboard({ app, onUpdate, onDelete }: AppDashboardProps) {
 
   const handleDeploy = () => {
     handleAction(
-      () => aplicacionService.deployAplicacion(),
+      () => aplicacionService.deployAplicacion(app.id),
       'Deployment iniciado'
     );
   };
 
   const handleStop = () => {
     handleAction(
-      () => aplicacionService.stopAplicacion(),
+      () => aplicacionService.stopAplicacion(app.id),
       'Aplicación detenida'
     );
   };
 
   const handleRestart = () => {
     handleAction(
-      () => aplicacionService.restartAplicacion(),
+      () => aplicacionService.restartAplicacion(app.id),
       'Aplicación reiniciada'
     );
   };
@@ -88,7 +88,7 @@ export function AppDashboard({ app, onUpdate, onDelete }: AppDashboardProps) {
     setIsLoading(true);
 
     try {
-      await aplicacionService.deleteAplicacion();
+      await aplicacionService.deleteAplicacion(app.id);
       onDelete();
     } catch (err: any) {
       setError(err.response?.data?.error || 'Error al eliminar la aplicación');
@@ -106,7 +106,7 @@ export function AppDashboard({ app, onUpdate, onDelete }: AppDashboardProps) {
 
     setIsLoading(true);
     try {
-      const response = await aplicacionService.getLogs(200);
+      const response = await aplicacionService.getLogs(app.id, 200);
       if (response.success && response.data) {
         setLogs(response.data.logs);
         setShowLogs(true);

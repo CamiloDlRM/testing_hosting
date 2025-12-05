@@ -2,44 +2,52 @@ import { api } from './api';
 import { Aplicacion, CreateAplicacionData, UpdateAplicacionData, ApiResponse } from '../types';
 
 export const aplicacionService = {
-  async getMyAplicacion() {
-    const response = await api.get<ApiResponse<Aplicacion>>('/aplicacion');
+  // Obtener todas las aplicaciones del usuario
+  async getMyAplicaciones() {
+    const response = await api.get<ApiResponse<Aplicacion[]>>('/aplicacion');
     return response.data;
   },
 
+  // Crear una nueva aplicación
   async createAplicacion(data: CreateAplicacionData) {
     const response = await api.post<ApiResponse<Aplicacion>>('/aplicacion', data);
     return response.data;
   },
 
-  async updateAplicacion(data: UpdateAplicacionData) {
-    const response = await api.patch<ApiResponse<Aplicacion>>('/aplicacion', data);
+  // Actualizar una aplicación específica
+  async updateAplicacion(appId: string, data: UpdateAplicacionData) {
+    const response = await api.patch<ApiResponse<Aplicacion>>(`/aplicacion/${appId}`, data);
     return response.data;
   },
 
-  async deleteAplicacion() {
-    const response = await api.delete<ApiResponse>('/aplicacion');
+  // Eliminar una aplicación específica
+  async deleteAplicacion(appId: string) {
+    const response = await api.delete<ApiResponse>(`/aplicacion/${appId}`);
     return response.data;
   },
 
-  async deployAplicacion() {
-    const response = await api.post<ApiResponse>('/aplicacion/deploy');
+  // Deployar una aplicación específica
+  async deployAplicacion(appId: string) {
+    const response = await api.post<ApiResponse>(`/aplicacion/${appId}/deploy`);
     return response.data;
   },
 
-  async stopAplicacion() {
-    const response = await api.post<ApiResponse>('/aplicacion/stop');
+  // Detener una aplicación específica
+  async stopAplicacion(appId: string) {
+    const response = await api.post<ApiResponse>(`/aplicacion/${appId}/stop`);
     return response.data;
   },
 
-  async restartAplicacion() {
-    const response = await api.post<ApiResponse>('/aplicacion/restart');
+  // Reiniciar una aplicación específica
+  async restartAplicacion(appId: string) {
+    const response = await api.post<ApiResponse>(`/aplicacion/${appId}/restart`);
     return response.data;
   },
 
-  async getLogs(lines: number = 100) {
+  // Obtener logs de una aplicación específica
+  async getLogs(appId: string, lines: number = 100) {
     const response = await api.get<ApiResponse<{ logs: string }>>(
-      `/aplicacion/logs?lines=${lines}`
+      `/aplicacion/${appId}/logs?lines=${lines}`
     );
     return response.data;
   },

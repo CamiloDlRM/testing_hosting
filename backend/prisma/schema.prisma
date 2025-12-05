@@ -18,15 +18,15 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Relación 1:1 con Aplicacion (un usuario solo puede tener UNA app)
-  aplicacion Aplicacion?
+  // Relación 1:N con Aplicacion (un usuario puede tener hasta 2 apps)
+  aplicaciones Aplicacion[]
 
   @@map("users")
 }
 
 model Aplicacion {
   id               String   @id @default(uuid())
-  userId           String   @unique // Relación 1:1 con User
+  userId           String   // Relación 1:N con User (se eliminó @unique)
   coolifyAppId     String?  @unique // ID de la app en Coolify
   nombre           String
   dominio          String?  // URL de la app: nombre_app.nombre_user.hostingroble.com
@@ -56,6 +56,7 @@ model Aplicacion {
   deployments Deployment[]
 
   @@map("aplicaciones")
+  @@index([userId]) // Índice para búsquedas por usuario
 }
 
 model Deployment {
