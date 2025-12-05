@@ -98,7 +98,7 @@ export const createAplicacion = async (
         build_pack: buildPack,
         ports_exposes: puerto?.toString() || '3000',
         is_static: tipoApp === 'STATIC',
-        domains: dominio, // Agregar el dominio generado como string (no array)
+        domains: `https://${dominio}`, // IMPORTANTE: Agregar https:// para que Coolify lo configure correctamente
       };
 
       // Agregar campos opcionales solo si tienen valores
@@ -206,6 +206,13 @@ export const getMyAplicacion = async (
       try {
         const coolifyApp = await coolifyService.getApplication(aplicacion.coolifyAppId);
 
+        // Log para debugging
+        console.log(`📊 Estado de Coolify para app ${aplicacion.nombre}:`, {
+          coolifyStatus: coolifyApp.status,
+          currentStatus: aplicacion.estado,
+          appId: aplicacion.coolifyAppId
+        });
+
         // Mapear estado de Coolify a nuestro estado
         // Coolify puede devolver: running, exited, stopped, starting, restarting, deploying, failed
         let estadoActualizado = aplicacion.estado;
@@ -231,6 +238,8 @@ export const getMyAplicacion = async (
         } else if (coolifyStatus === 'failed' || coolifyStatus === 'error') {
           estadoActualizado = EstadoApp.FAILED;
         }
+
+        console.log(`🔄 Actualizando estado: ${aplicacion.estado} → ${estadoActualizado}`);
 
         // Actualizar si el estado cambió
         if (estadoActualizado !== aplicacion.estado) {

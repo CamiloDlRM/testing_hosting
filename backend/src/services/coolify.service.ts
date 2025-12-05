@@ -150,6 +150,10 @@ class CoolifyService {
   async getApplication(appId: string): Promise<CoolifyAppResponse> {
     try {
       const response = await this.api.get(`/applications/${appId}`);
+
+      // Log para debugging: ver qué campos devuelve Coolify
+      console.log('🔍 Respuesta completa de Coolify API:', JSON.stringify(response.data, null, 2));
+
       return response.data;
     } catch (error: any) {
       console.error('Error fetching application from Coolify:', error.response?.data || error.message);
