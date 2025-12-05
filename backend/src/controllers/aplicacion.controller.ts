@@ -98,7 +98,7 @@ export const createAplicacion = async (
         build_pack: buildPack,
         ports_exposes: puerto?.toString() || '3000',
         is_static: tipoApp === 'STATIC',
-        domains: [dominio], // Agregar el dominio generado
+        domains: dominio, // Agregar el dominio generado como string (no array)
       };
 
       // Agregar campos opcionales solo si tienen valores

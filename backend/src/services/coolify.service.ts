@@ -94,9 +94,17 @@ class CoolifyService {
         payload.is_static = true;
       }
 
-      // Dominios (solo si hay al menos uno)
-      if (config.domains && Array.isArray(config.domains) && config.domains.length > 0) {
-        payload.domains = config.domains.filter(d => d && d.trim() !== '');
+      // Dominios (Coolify espera un string, no array)
+      if (config.domains) {
+        if (typeof config.domains === 'string' && config.domains.trim() !== '') {
+          payload.domains = config.domains.trim();
+        } else if (Array.isArray(config.domains) && config.domains.length > 0) {
+          // Si es array, tomar el primer dominio válido
+          const firstDomain = config.domains.find(d => d && d.trim() !== '');
+          if (firstDomain) {
+            payload.domains = firstDomain.trim();
+          }
+        }
       }
 
       // IMPORTANTE: Limpiar TODOS los valores null, undefined y strings vacíos del payload

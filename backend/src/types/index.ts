@@ -63,7 +63,7 @@ export interface CoolifyAppConfig {
   git_branch?: string;
   build_pack?: string;
   environment_variables?: Record<string, string>;
-  domains?: string[];
+  domains?: string | string[]; // Coolify acepta string, pero internamente puede ser array
 
   // Configuración adicional
   ports_exposes?: string;
