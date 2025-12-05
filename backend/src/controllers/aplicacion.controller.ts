@@ -207,11 +207,30 @@ export const getMyAplicacion = async (
         const coolifyApp = await coolifyService.getApplication(aplicacion.coolifyAppId);
 
         // Mapear estado de Coolify a nuestro estado
+        // Coolify puede devolver: running, exited, stopped, starting, restarting, deploying, failed
         let estadoActualizado = aplicacion.estado;
-        if (coolifyApp.status === 'running') estadoActualizado = EstadoApp.RUNNING;
-        else if (coolifyApp.status === 'stopped') estadoActualizado = EstadoApp.STOPPED;
-        else if (coolifyApp.status === 'deploying') estadoActualizado = EstadoApp.DEPLOYING;
-        else if (coolifyApp.status === 'failed') estadoActualizado = EstadoApp.FAILED;
+        const coolifyStatus = coolifyApp.status?.toLowerCase() || '';
+
+        if (coolifyStatus === 'running') {
+          estadoActualizado = EstadoApp.RUNNING;
+        } else if (coolifyStatus === 'exited') {
+          // IMPORTANTE: Coolify a veces muestra "exited" aunque la app esté corriendo
+          // Si tiene dominio configurado y antes estaba RUNNING, asumir que sigue RUNNING
+          if (aplicacion.dominio && aplicacion.estado === EstadoApp.RUNNING) {
+            estadoActualizado = EstadoApp.RUNNING;
+          } else {
+            estadoActualizado = EstadoApp.STOPPED;
+          }
+        } else if (coolifyStatus === 'stopped') {
+          estadoActualizado = EstadoApp.STOPPED;
+        } else if (coolifyStatus === 'starting' || coolifyStatus === 'deploying') {
+          estadoActualizado = EstadoApp.DEPLOYING;
+        } else if (coolifyStatus === 'restarting') {
+          // Si está reiniciando, mantener como RUNNING ya que es funcional
+          estadoActualizado = EstadoApp.RUNNING;
+        } else if (coolifyStatus === 'failed' || coolifyStatus === 'error') {
+          estadoActualizado = EstadoApp.FAILED;
+        }
 
         // Actualizar si el estado cambió
         if (estadoActualizado !== aplicacion.estado) {
