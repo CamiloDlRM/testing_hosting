@@ -87,7 +87,7 @@ export interface CoolifyAppResponse {
   name: string;
   status: string;
   git_repository: string;
-  domains: string[];
+  domains: string | string[]; // Puede ser string o array
   created_at: string;
 }
 

@@ -135,7 +135,7 @@ class CoolifyService {
         name: config.name,
         status: 'pending',
         git_repository: config.git_repository,
-        domains: config.domains || [],
+        domains: config.domains || '', // Ahora domains es string (o puede ser array)
         created_at: new Date().toISOString(),
       };
     } catch (error: any) {
