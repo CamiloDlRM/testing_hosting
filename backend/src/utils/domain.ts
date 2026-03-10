@@ -2,7 +2,7 @@
  * Utilities para generar dominios de aplicaciones
  */
 
-const BASE_DOMAIN = 'hostingroble.com';
+const BASE_DOMAIN = process.env.BASE_DOMAIN || 'hostingroble.com';
 
 /**
  * Convierte un string en un slug válido para subdominios
@@ -23,14 +23,14 @@ export function slugify(text: string): string {
 
 /**
  * Genera un dominio para una aplicación
- * Formato: nombre_app.nombre_user.hostingroble.com
+ * Formato: nombre_app.nombre_user.{BASE_DOMAIN}
  *
  * @param appName - Nombre de la aplicación
  * @param userName - Nombre del usuario
  * @returns Dominio completo de la app
  *
  * Ejemplo:
- * generateDomain("Mi App", "Juan Pérez") -> "mi-app.juan-perez.hostingroble.com"
+ * generateDomain("Mi App", "Juan Pérez") -> "mi-app.juan-perez.{BASE_DOMAIN}"
  */
 export function generateDomain(appName: string, userName: string): string {
   const appSlug = slugify(appName);
