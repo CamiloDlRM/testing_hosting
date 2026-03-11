@@ -48,7 +48,7 @@ export function generateDomain(appName: string, userName: string): string {
   const truncatedAppSlug = appSlug.substring(0, maxLength);
   const truncatedUserSlug = userSlug.substring(0, maxLength);
 
-  return `${truncatedAppSlug}.${truncatedUserSlug}.${BASE_DOMAIN}`;
+  return `${truncatedAppSlug}-${truncatedUserSlug}.${BASE_DOMAIN}`;
 }
 
 /**
