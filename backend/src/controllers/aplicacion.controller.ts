@@ -3,7 +3,7 @@ import { AuthRequest, CreateAplicacionDTO, UpdateAplicacionDTO, ApiResponse } fr
 import prisma from '../utils/prisma';
 import coolifyService from '../services/coolify.service';
 import { EstadoApp } from '@prisma/client';
-import { generateDomain } from '../utils/domain';
+import { generateDomain, generateUrl } from '../utils/domain';
 
 /**
  * Crear una nueva aplicación (solo si el usuario no tiene una)
@@ -98,7 +98,7 @@ export const createAplicacion = async (
         build_pack: buildPack,
         ports_exposes: puerto?.toString() || '3000',
         is_static: tipoApp === 'STATIC',
-        domains: `https://${dominio}`, // IMPORTANTE: Agregar https:// para que Coolify lo configure correctamente
+        domains: generateUrl(dominio), // IMPORTANTE: Agregar https:// para que Coolify lo configure correctamente
       };
 
       // Agregar campos opcionales solo si tienen valores

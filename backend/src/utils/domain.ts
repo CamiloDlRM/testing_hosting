@@ -4,6 +4,8 @@
 
 const BASE_DOMAIN = process.env.BASE_DOMAIN || 'hostingroble.com';
 
+const PROTOCOL = process.env.PROTOCOL || 'https';
+
 /**
  * Convierte un string en un slug válido para subdominios
  * Ejemplo: "Mi App!" -> "mi-app"
@@ -52,12 +54,10 @@ export function generateDomain(appName: string, userName: string): string {
 /**
  * Genera una URL completa con protocolo
  * @param domain - Dominio de la aplicación
- * @param useHttps - Si debe usar HTTPS (default: true)
  * @returns URL completa
  */
-export function generateUrl(domain: string, useHttps: boolean = true): string {
-  const protocol = useHttps ? 'https' : 'http';
-  return `${protocol}://${domain}`;
+export function generateUrl(domain: string): string {
+  return `${PROTOCOL}://${domain}`;
 }
 
 /**
