@@ -219,7 +219,7 @@ export function AppDashboard({ app, onUpdate, onSilentUpdate, onDelete }: AppDas
               </div>
               <div className="flex items-center gap-2">
                 <code className="flex-1 bg-white px-4 py-2 rounded border border-purple-200 text-purple-900 font-mono text-sm">
-                  http://{app.dominio}
+                  https://{app.dominio}
                 </code>
                 <Button
                   onClick={copyDomainToClipboard}
