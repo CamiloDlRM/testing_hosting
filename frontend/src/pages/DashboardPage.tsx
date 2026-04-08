@@ -16,8 +16,8 @@ export function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const fetchApps = async () => {
-    setIsLoading(true);
+  const fetchApps = async (silent = false) => {
+    if (!silent) setIsLoading(true);
     setError('');
 
     try {
@@ -30,11 +30,11 @@ export function DashboardPage() {
     } catch (err: any) {
       if (err.response?.status === 404) {
         setApps([]);
-      } else {
+      } else if (!silent) {
         setError(err.response?.data?.error || 'Error al cargar las aplicaciones');
       }
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
   };
 
@@ -136,6 +136,7 @@ export function DashboardPage() {
                 key={app.id}
                 app={app}
                 onUpdate={fetchApps}
+                onSilentUpdate={() => fetchApps(true)}
                 onDelete={handleAppDeleted}
               />
             ))}

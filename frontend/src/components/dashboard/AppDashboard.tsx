@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Aplicacion, EstadoApp } from '@/types';
 import { aplicacionService } from '@/services/aplicacion.service';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Input } from '@/components/ui/input';
 import { getEstadoColor, getEstadoText } from '@/lib/utils';
 import {
   Play,
@@ -18,6 +19,10 @@ import {
   ExternalLink,
   Globe,
   Copy,
+  Pencil,
+  Plus,
+  X,
+  Check,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -25,10 +30,14 @@ import { es } from 'date-fns/locale';
 interface AppDashboardProps {
   app: Aplicacion;
   onUpdate: () => void;
+  onSilentUpdate: () => void;
   onDelete: () => void;
 }
 
-export function AppDashboard({ app, onUpdate, onDelete }: AppDashboardProps) {
+const POLLING_INTERVAL = 5000;
+const DEPLOYING_STATES = [EstadoApp.PENDING, EstadoApp.DEPLOYING];
+
+export function AppDashboard({ app, onUpdate, onSilentUpdate, onDelete }: AppDashboardProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [showLogs, setShowLogs] = useState(false);
@@ -36,22 +45,35 @@ export function AppDashboard({ app, onUpdate, onDelete }: AppDashboardProps) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [copiedDomain, setCopiedDomain] = useState(false);
 
+  // Env var editing state
+  const [editingEnvVars, setEditingEnvVars] = useState(false);
+  const [envVarPairs, setEnvVarPairs] = useState<{ key: string; value: string }[]>([]);
+  const [savingEnvVars, setSavingEnvVars] = useState(false);
+
+  const isDeploying = DEPLOYING_STATES.includes(app.estado);
+  const onSilentUpdateRef = useRef(onSilentUpdate);
+  onSilentUpdateRef.current = onSilentUpdate;
+
+  // Polling: while deploying, refresh every 5s silently
+  useEffect(() => {
+    if (!isDeploying) return;
+    const interval = setInterval(() => {
+      onSilentUpdateRef.current();
+    }, POLLING_INTERVAL);
+    return () => clearInterval(interval);
+  }, [isDeploying]);
+
   const copyDomainToClipboard = () => {
     if (app.dominio) {
-      const fullUrl = `https://${app.dominio}`;
-      navigator.clipboard.writeText(fullUrl);
+      navigator.clipboard.writeText(`http://${app.dominio}`);
       setCopiedDomain(true);
       setTimeout(() => setCopiedDomain(false), 2000);
     }
   };
 
-  const handleAction = async (
-    action: () => Promise<any>,
-    successMessage: string
-  ) => {
+  const handleAction = async (action: () => Promise<any>, successMessage: string) => {
     setError('');
     setIsLoading(true);
-
     try {
       await action();
       onUpdate();
@@ -62,31 +84,18 @@ export function AppDashboard({ app, onUpdate, onDelete }: AppDashboardProps) {
     }
   };
 
-  const handleDeploy = () => {
-    handleAction(
-      () => aplicacionService.deployAplicacion(app.id),
-      'Deployment iniciado'
-    );
-  };
+  const handleDeploy = () =>
+    handleAction(() => aplicacionService.deployAplicacion(app.id), 'Deployment iniciado');
 
-  const handleStop = () => {
-    handleAction(
-      () => aplicacionService.stopAplicacion(app.id),
-      'Aplicación detenida'
-    );
-  };
+  const handleStop = () =>
+    handleAction(() => aplicacionService.stopAplicacion(app.id), 'Aplicación detenida');
 
-  const handleRestart = () => {
-    handleAction(
-      () => aplicacionService.restartAplicacion(app.id),
-      'Aplicación reiniciada'
-    );
-  };
+  const handleRestart = () =>
+    handleAction(() => aplicacionService.restartAplicacion(app.id), 'Aplicación reiniciada');
 
   const handleDelete = async () => {
     setError('');
     setIsLoading(true);
-
     try {
       await aplicacionService.deleteAplicacion(app.id);
       onDelete();
@@ -103,7 +112,6 @@ export function AppDashboard({ app, onUpdate, onDelete }: AppDashboardProps) {
       setShowLogs(false);
       return;
     }
-
     setIsLoading(true);
     try {
       const response = await aplicacionService.getLogs(app.id, 200);
@@ -118,12 +126,52 @@ export function AppDashboard({ app, onUpdate, onDelete }: AppDashboardProps) {
     }
   };
 
+  // Env var editing
+  const startEditEnvVars = () => {
+    const pairs = app.variablesEntorno
+      ? Object.entries(app.variablesEntorno).map(([key, value]) => ({ key, value }))
+      : [];
+    if (pairs.length === 0) pairs.push({ key: '', value: '' });
+    setEnvVarPairs(pairs);
+    setEditingEnvVars(true);
+  };
+
+  const cancelEditEnvVars = () => {
+    setEditingEnvVars(false);
+    setEnvVarPairs([]);
+  };
+
+  const saveEnvVars = async () => {
+    setSavingEnvVars(true);
+    setError('');
+    try {
+      const vars: Record<string, string> = {};
+      for (const { key, value } of envVarPairs) {
+        if (key.trim()) vars[key.trim()] = value;
+      }
+      await aplicacionService.updateAplicacion(app.id, { variablesEntorno: vars });
+      setEditingEnvVars(false);
+      onUpdate();
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Error al guardar las variables de entorno');
+    } finally {
+      setSavingEnvVars(false);
+    }
+  };
+
+  const updateEnvPair = (index: number, field: 'key' | 'value', val: string) => {
+    setEnvVarPairs((prev) => prev.map((p, i) => (i === index ? { ...p, [field]: val } : p)));
+  };
+
+  const addEnvPair = () => setEnvVarPairs((prev) => [...prev, { key: '', value: '' }]);
+
+  const removeEnvPair = (index: number) =>
+    setEnvVarPairs((prev) => prev.filter((_, i) => i !== index));
+
   const canStart = app.estado === EstadoApp.STOPPED;
   const canStop = app.estado === EstadoApp.RUNNING;
   const canRestart = app.estado === EstadoApp.RUNNING;
-  const canDeploy = [EstadoApp.RUNNING, EstadoApp.STOPPED, EstadoApp.FAILED].includes(
-    app.estado
-  );
+  const canDeploy = [EstadoApp.RUNNING, EstadoApp.STOPPED, EstadoApp.FAILED].includes(app.estado);
 
   return (
     <div className="space-y-6">
@@ -137,9 +185,18 @@ export function AppDashboard({ app, onUpdate, onDelete }: AppDashboardProps) {
                 {app.repositorioGit}
               </CardDescription>
             </div>
-            <Badge className={getEstadoColor(app.estado)}>
-              {getEstadoText(app.estado)}
-            </Badge>
+            <div className="flex items-center gap-2">
+              {isDeploying && (
+                <span className="flex items-center gap-1.5 text-xs text-amber-600 font-medium">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500" />
+                  </span>
+                  Actualizando...
+                </span>
+              )}
+              <Badge className={getEstadoColor(app.estado)}>{getEstadoText(app.estado)}</Badge>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -159,7 +216,7 @@ export function AppDashboard({ app, onUpdate, onDelete }: AppDashboardProps) {
               </div>
               <div className="flex items-center gap-2">
                 <code className="flex-1 bg-white px-4 py-2 rounded border border-purple-200 text-purple-900 font-mono text-sm">
-                  https://{app.dominio}
+                  http://{app.dominio}
                 </code>
                 <Button
                   onClick={copyDomainToClipboard}
@@ -168,9 +225,7 @@ export function AppDashboard({ app, onUpdate, onDelete }: AppDashboardProps) {
                   className="border-purple-300 hover:bg-purple-100"
                 >
                   {copiedDomain ? (
-                    <>
-                      <span className="text-green-600">✓ Copiado</span>
-                    </>
+                    <span className="text-green-600">✓ Copiado</span>
                   ) : (
                     <>
                       <Copy className="h-4 w-4 mr-2" />
@@ -179,7 +234,7 @@ export function AppDashboard({ app, onUpdate, onDelete }: AppDashboardProps) {
                   )}
                 </Button>
                 <Button
-                  onClick={() => window.open(`https://${app.dominio}`, '_blank')}
+                  onClick={() => window.open(`http://${app.dominio}`, '_blank')}
                   variant="default"
                   size="sm"
                   className="bg-purple-600 hover:bg-purple-700"
@@ -273,33 +328,25 @@ export function AppDashboard({ app, onUpdate, onDelete }: AppDashboardProps) {
                 {app.estado === EstadoApp.FAILED ? 'Reintentar Deploy' : 'Redeploy'}
               </Button>
             )}
-
             {canStart && (
               <Button onClick={handleRestart} disabled={isLoading} variant="outline">
                 <Play className="h-4 w-4 mr-2" />
                 Iniciar
               </Button>
             )}
-
             {canStop && (
               <Button onClick={handleStop} disabled={isLoading} variant="outline">
                 <Square className="h-4 w-4 mr-2" />
                 Detener
               </Button>
             )}
-
             {canRestart && (
               <Button onClick={handleRestart} disabled={isLoading} variant="outline">
                 <RotateCw className="h-4 w-4 mr-2" />
                 Reiniciar
               </Button>
             )}
-
-            <Button
-              onClick={handleViewLogs}
-              disabled={isLoading}
-              variant="outline"
-            >
+            <Button onClick={handleViewLogs} disabled={isLoading} variant="outline">
               <FileText className="h-4 w-4 mr-2" />
               {showLogs ? 'Ocultar Logs' : 'Ver Logs'}
             </Button>
@@ -315,9 +362,65 @@ export function AppDashboard({ app, onUpdate, onDelete }: AppDashboardProps) {
           )}
 
           {/* Variables de Entorno */}
-          {app.variablesEntorno && Object.keys(app.variablesEntorno).length > 0 && (
-            <div>
-              <h4 className="font-semibold mb-2">Variables de Entorno</h4>
+          <div className="border-t pt-4">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="font-semibold">Variables de Entorno</h4>
+              {!editingEnvVars && (
+                <Button onClick={startEditEnvVars} variant="outline" size="sm">
+                  <Pencil className="h-3.5 w-3.5 mr-1.5" />
+                  Editar
+                </Button>
+              )}
+            </div>
+
+            {editingEnvVars ? (
+              <div className="space-y-3">
+                {envVarPairs.map((pair, index) => (
+                  <div key={index} className="flex gap-2 items-center">
+                    <Input
+                      placeholder="VARIABLE"
+                      value={pair.key}
+                      onChange={(e) => updateEnvPair(index, 'key', e.target.value)}
+                      className="font-mono text-sm flex-1"
+                    />
+                    <span className="text-muted-foreground">=</span>
+                    <Input
+                      placeholder="valor"
+                      value={pair.value}
+                      onChange={(e) => updateEnvPair(index, 'value', e.target.value)}
+                      className="font-mono text-sm flex-1"
+                    />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removeEnvPair(index)}
+                      disabled={envVarPairs.length === 1}
+                      className="shrink-0"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+                <Button variant="outline" size="sm" onClick={addEnvPair}>
+                  <Plus className="h-3.5 w-3.5 mr-1.5" />
+                  Agregar variable
+                </Button>
+                <div className="flex gap-2 pt-1">
+                  <Button size="sm" onClick={saveEnvVars} disabled={savingEnvVars}>
+                    <Check className="h-3.5 w-3.5 mr-1.5" />
+                    {savingEnvVars ? 'Guardando...' : 'Guardar'}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={cancelEditEnvVars}
+                    disabled={savingEnvVars}
+                  >
+                    Cancelar
+                  </Button>
+                </div>
+              </div>
+            ) : app.variablesEntorno && Object.keys(app.variablesEntorno).length > 0 ? (
               <div className="bg-muted p-4 rounded-lg space-y-1">
                 {Object.entries(app.variablesEntorno).map(([key, value]) => (
                   <div key={key} className="text-sm font-mono">
@@ -325,8 +428,12 @@ export function AppDashboard({ app, onUpdate, onDelete }: AppDashboardProps) {
                   </div>
                 ))}
               </div>
-            </div>
-          )}
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                No hay variables de entorno configuradas.
+              </p>
+            )}
+          </div>
 
           {/* Deployments Recientes */}
           {app.deployments && app.deployments.length > 0 && (
@@ -370,8 +477,8 @@ export function AppDashboard({ app, onUpdate, onDelete }: AppDashboardProps) {
                 <Alert variant="destructive">
                   <AlertCircle className="h-4 w-4" />
                   <AlertDescription>
-                    ¿Estás seguro? Esta acción no se puede deshacer. Tu aplicación será
-                    eliminada permanentemente.
+                    ¿Estás seguro? Esta acción no se puede deshacer. Tu aplicación será eliminada
+                    permanentemente.
                   </AlertDescription>
                 </Alert>
                 <div className="flex gap-2">
