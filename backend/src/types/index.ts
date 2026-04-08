@@ -42,6 +42,10 @@ export interface CreateAplicacionDTO {
   startCommand?: string;
   baseDirectory?: string;
   publishDirectory?: string;
+
+  // Límites de recursos del contenedor
+  limiteMemoria?: string;
+  limiteCpu?: string;
 }
 
 export interface UpdateAplicacionDTO {
@@ -54,6 +58,10 @@ export interface UpdateAplicacionDTO {
   startCommand?: string;
   baseDirectory?: string;
   publishDirectory?: string;
+
+  // Límites de recursos del contenedor
+  limiteMemoria?: string;
+  limiteCpu?: string;
 }
 
 // Tipos para Coolify API
@@ -73,6 +81,10 @@ export interface CoolifyAppConfig {
   base_directory?: string;
   publish_directory?: string;
   is_static?: boolean;
+
+  // Límites de recursos del contenedor (Docker)
+  limits_memory?: string;  // Ej: "512m", "1g"
+  limits_cpus?: string;    // Ej: "0.5", "1"
 }
 
 export interface CoolifyDeploymentResponse {

@@ -31,8 +31,27 @@ const createValidation = [
     .trim()
     .matches(/^https?:\/\/.+/)
     .withMessage('Invalid Git repository URL'),
-  body('variablesEntorno').optional().isObject().withMessage('Environment variables must be an object'),
-  body('tipoAplicacion').optional().isString().withMessage('Application type must be a string'),
+  body('variablesEntorno')
+    .optional()
+    .isObject()
+    .withMessage('Environment variables must be an object'),
+  body('tipoAplicacion')
+    .optional()
+    .isIn(['NIXPACKS', 'STATIC', 'DOCKERFILE', 'DOCKER_COMPOSE'])
+    .withMessage('tipoAplicacion must be one of: NIXPACKS, STATIC, DOCKERFILE, DOCKER_COMPOSE'),
+  body('limiteMemoria')
+    .optional()
+    .matches(/^\d+(m|g|k)$/)
+    .withMessage('limiteMemoria must be a valid Docker memory string, e.g. "256m", "512m", "1g"'),
+  body('limiteCpu')
+    .optional()
+    .matches(/^\d+(\.\d+)?$/)
+    .custom((value) => {
+      const num = parseFloat(value);
+      if (num <= 0 || num > 8) throw new Error('limiteCpu must be between 0.1 and 8');
+      return true;
+    })
+    .withMessage('limiteCpu must be a decimal number between 0.1 and 8, e.g. "0.5", "1", "2"'),
 ];
 
 const updateValidation = [
@@ -41,7 +60,23 @@ const updateValidation = [
     .trim()
     .isLength({ min: 3, max: 50 })
     .withMessage('Name must be between 3 and 50 characters'),
-  body('variablesEntorno').optional().isObject().withMessage('Environment variables must be an object'),
+  body('variablesEntorno')
+    .optional()
+    .isObject()
+    .withMessage('Environment variables must be an object'),
+  body('limiteMemoria')
+    .optional()
+    .matches(/^\d+(m|g|k)$/)
+    .withMessage('limiteMemoria must be a valid Docker memory string, e.g. "256m", "512m", "1g"'),
+  body('limiteCpu')
+    .optional()
+    .matches(/^\d+(\.\d+)?$/)
+    .custom((value) => {
+      const num = parseFloat(value);
+      if (num <= 0 || num > 8) throw new Error('limiteCpu must be between 0.1 and 8');
+      return true;
+    })
+    .withMessage('limiteCpu must be a decimal number between 0.1 and 8, e.g. "0.5", "1", "2"'),
 ];
 
 // Rutas

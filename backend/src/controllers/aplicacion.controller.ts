@@ -26,6 +26,8 @@ export const createAplicacion = async (
       startCommand,
       baseDirectory,
       publishDirectory,
+      limiteMemoria,
+      limiteCpu,
     } = req.body;
 
     // VERIFICAR: El usuario solo puede tener un MÁXIMO de 2 aplicaciones
@@ -85,6 +87,8 @@ export const createAplicacion = async (
         startCommand,
         baseDirectory,
         publishDirectory,
+        limiteMemoria: limiteMemoria || '512m',
+        limiteCpu: limiteCpu || '0.5',
       },
     });
 
@@ -99,6 +103,8 @@ export const createAplicacion = async (
         ports_exposes: puerto?.toString() || '3000',
         is_static: tipoApp === 'STATIC',
         domains: `https://${dominio}`, // IMPORTANTE: Agregar https:// para que Coolify lo configure correctamente
+        limits_memory: limiteMemoria || '512m',
+        limits_cpus: limiteCpu || '0.5',
       };
 
       // Agregar campos opcionales solo si tienen valores
@@ -311,6 +317,8 @@ export const updateAplicacion = async (
       startCommand,
       baseDirectory,
       publishDirectory,
+      limiteMemoria,
+      limiteCpu,
     } = req.body;
 
     // Verificar que la aplicación existe y pertenece al usuario
@@ -328,18 +336,32 @@ export const updateAplicacion = async (
       });
     }
 
-    // Actualizar en Coolify si hay variables de entorno
-    if (variablesEntorno && aplicacion.coolifyAppId) {
-      try {
-        await coolifyService.updateEnvironmentVariables(
-          aplicacion.coolifyAppId,
-          variablesEntorno
-        );
-      } catch (coolifyError: any) {
-        return res.status(500).json({
-          success: false,
-          error: `Failed to update environment variables in Coolify: ${coolifyError.message}`,
-        });
+    if (aplicacion.coolifyAppId) {
+      // Actualizar variables de entorno en Coolify
+      if (variablesEntorno) {
+        try {
+          await coolifyService.updateEnvironmentVariables(aplicacion.coolifyAppId, variablesEntorno);
+        } catch (coolifyError: any) {
+          return res.status(500).json({
+            success: false,
+            error: `Failed to update environment variables in Coolify: ${coolifyError.message}`,
+          });
+        }
+      }
+
+      // Actualizar límites de recursos en Coolify si cambiaron
+      if (limiteMemoria !== undefined || limiteCpu !== undefined) {
+        try {
+          await coolifyService.updateApplication(aplicacion.coolifyAppId, {
+            ...(limiteMemoria !== undefined && { limits_memory: limiteMemoria }),
+            ...(limiteCpu !== undefined && { limits_cpus: limiteCpu }),
+          });
+        } catch (coolifyError: any) {
+          return res.status(500).json({
+            success: false,
+            error: `Failed to update resource limits in Coolify: ${coolifyError.message}`,
+          });
+        }
       }
     }
 
@@ -356,6 +378,8 @@ export const updateAplicacion = async (
         ...(startCommand !== undefined && { startCommand }),
         ...(baseDirectory !== undefined && { baseDirectory }),
         ...(publishDirectory !== undefined && { publishDirectory }),
+        ...(limiteMemoria !== undefined && { limiteMemoria }),
+        ...(limiteCpu !== undefined && { limiteCpu }),
       },
     });
 

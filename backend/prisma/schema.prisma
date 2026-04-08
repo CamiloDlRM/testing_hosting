@@ -47,6 +47,10 @@ model Aplicacion {
   baseDirectory    String?
   publishDirectory String? // Para apps estáticas
 
+  // Límites de recursos del contenedor
+  limiteMemoria    String?  @default("512m") // Ej: "256m", "512m", "1g"
+  limiteCpu        String?  @default("0.5")  // Ej: "0.5", "1", "2"
+
   ultimoDeployment DateTime?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt

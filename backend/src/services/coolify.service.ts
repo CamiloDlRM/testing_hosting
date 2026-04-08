@@ -94,6 +94,14 @@ class CoolifyService {
         payload.is_static = true;
       }
 
+      // Límites de recursos del contenedor
+      if (config.limits_memory) {
+        payload.limits_memory = config.limits_memory;
+      }
+      if (config.limits_cpus) {
+        payload.limits_cpus = config.limits_cpus;
+      }
+
       // Dominios (Coolify espera un string, no array)
       if (config.domains) {
         if (typeof config.domains === 'string' && config.domains.trim() !== '') {
@@ -143,13 +151,23 @@ class CoolifyService {
     try {
       const response = await this.api.get(`/applications/${appId}`);
 
-      // Log para debugging: ver qué campos devuelve Coolify
-      console.log('🔍 Respuesta completa de Coolify API:', JSON.stringify(response.data, null, 2));
-
       return response.data;
     } catch (error: any) {
       console.error('Error fetching application from Coolify:', error.response?.data || error.message);
       throw new Error(`Failed to fetch application from Coolify: ${error.response?.data?.message || error.message}`);
+    }
+  }
+
+  /**
+   * Actualizar configuración de una aplicación (límites de recursos, etc.)
+   */
+  async updateApplication(appId: string, config: Partial<CoolifyAppConfig>): Promise<void> {
+    try {
+      const payload = this.cleanPayload(config);
+      await this.api.patch(`/applications/${appId}`, payload);
+    } catch (error: any) {
+      console.error('Error updating application in Coolify:', error.response?.data || error.message);
+      throw new Error(`Failed to update application in Coolify: ${error.response?.data?.message || error.message}`);
     }
   }
 
