@@ -102,7 +102,7 @@ export const createAplicacion = async (
         build_pack: buildPack,
         ports_exposes: puerto?.toString() || '3000',
         is_static: tipoApp === 'STATIC',
-        domains: `https://${dominio}`, // IMPORTANTE: Agregar https:// para que Coolify lo configure correctamente
+        domains: `http://${dominio}`,
         limits_memory: limiteMemoria || '512m',
         limits_cpus: limiteCpu || '0.5',
       };
