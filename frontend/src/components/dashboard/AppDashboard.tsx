@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Aplicacion, EstadoApp } from '@/types';
 import { aplicacionService } from '@/services/aplicacion.service';
 import { Button } from '@/components/ui/button';
@@ -54,17 +54,34 @@ export function AppDashboard({ app, onUpdate, onSilentUpdate, onDelete }: AppDas
     app.estado === EstadoApp.PENDING ||
     app.estado === EstadoApp.DEPLOYING ||
     hasActiveDeployment;
+
   const onSilentUpdateRef = useRef(onSilentUpdate);
   onSilentUpdateRef.current = onSilentUpdate;
 
-  // Polling: while deploying, refresh every 5s silently
+  // Polling temporal después de acciones (stop/start/restart/deploy)
+  const [pollAfterAction, setPollAfterAction] = useState(false);
+  const pollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const triggerActionPolling = useCallback(() => {
+    if (pollTimeoutRef.current) clearTimeout(pollTimeoutRef.current);
+    setPollAfterAction(true);
+    pollTimeoutRef.current = setTimeout(() => setPollAfterAction(false), 60_000);
+  }, []);
+
   useEffect(() => {
-    if (!isDeploying) return;
+    return () => {
+      if (pollTimeoutRef.current) clearTimeout(pollTimeoutRef.current);
+    };
+  }, []);
+
+  // Polling: mientras deploying O en ventana post-acción
+  useEffect(() => {
+    if (!isDeploying && !pollAfterAction) return;
     const interval = setInterval(() => {
       onSilentUpdateRef.current();
     }, POLLING_INTERVAL);
     return () => clearInterval(interval);
-  }, [isDeploying]);
+  }, [isDeploying, pollAfterAction]);
 
   const copyDomainToClipboard = () => {
     if (app.dominio) {
@@ -79,7 +96,7 @@ export function AppDashboard({ app, onUpdate, onSilentUpdate, onDelete }: AppDas
     setIsLoading(true);
     try {
       await action();
-      onUpdate();
+      triggerActionPolling();
     } catch (err: any) {
       setError(err.response?.data?.error || `Error: ${successMessage}`);
     } finally {
