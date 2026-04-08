@@ -3,7 +3,7 @@ import { AuthRequest, CreateAplicacionDTO, UpdateAplicacionDTO, ApiResponse } fr
 import prisma from '../utils/prisma';
 import coolifyService from '../services/coolify.service';
 import { EstadoApp } from '@prisma/client';
-import { generateDomain } from '../utils/domain';
+import { generateDomain, generateUrl } from '../utils/domain';
 
 /**
  * Crear una nueva aplicación (solo si el usuario no tiene una)
