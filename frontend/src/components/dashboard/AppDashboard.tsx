@@ -35,7 +35,6 @@ interface AppDashboardProps {
 }
 
 const POLLING_INTERVAL = 5000;
-const DEPLOYING_STATES = [EstadoApp.PENDING, EstadoApp.DEPLOYING];
 
 export function AppDashboard({ app, onUpdate, onSilentUpdate, onDelete }: AppDashboardProps) {
   const [isLoading, setIsLoading] = useState(false);
@@ -50,7 +49,11 @@ export function AppDashboard({ app, onUpdate, onSilentUpdate, onDelete }: AppDas
   const [envVarPairs, setEnvVarPairs] = useState<{ key: string; value: string }[]>([]);
   const [savingEnvVars, setSavingEnvVars] = useState(false);
 
-  const isDeploying = DEPLOYING_STATES.includes(app.estado);
+  const hasActiveDeployment = app.deployments?.some((d) => d.estado === 'IN_PROGRESS') ?? false;
+  const isDeploying =
+    app.estado === EstadoApp.PENDING ||
+    app.estado === EstadoApp.DEPLOYING ||
+    hasActiveDeployment;
   const onSilentUpdateRef = useRef(onSilentUpdate);
   onSilentUpdateRef.current = onSilentUpdate;
 
@@ -65,7 +68,7 @@ export function AppDashboard({ app, onUpdate, onSilentUpdate, onDelete }: AppDas
 
   const copyDomainToClipboard = () => {
     if (app.dominio) {
-      navigator.clipboard.writeText(`http://${app.dominio}`);
+      navigator.clipboard.writeText(`https://${app.dominio}`);
       setCopiedDomain(true);
       setTimeout(() => setCopiedDomain(false), 2000);
     }
@@ -234,7 +237,7 @@ export function AppDashboard({ app, onUpdate, onSilentUpdate, onDelete }: AppDas
                   )}
                 </Button>
                 <Button
-                  onClick={() => window.open(`http://${app.dominio}`, '_blank')}
+                  onClick={() => window.open(`https://${app.dominio}`, '_blank')}
                   variant="default"
                   size="sm"
                   className="bg-purple-600 hover:bg-purple-700"

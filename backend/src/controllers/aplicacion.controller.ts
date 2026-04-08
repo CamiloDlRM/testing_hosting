@@ -244,27 +244,31 @@ export const getMyAplicacion = async (
           let estadoActualizado = aplicacion.estado;
           const coolifyStatus = coolifyApp.status?.toLowerCase() || '';
 
+          // Si hay un deployment IN_PROGRESS, la app está en proceso de deploy
+          const hasActiveDeployment = aplicacion.deployments?.some(
+            (d) => d.estado === 'IN_PROGRESS'
+          ) ?? false;
+
           // IMPORTANTE: Coolify puede devolver "running:unknown", "running:healthy", etc.
           // Por eso usamos startsWith() en lugar de comparación exacta
           if (coolifyStatus.startsWith('running')) {
             estadoActualizado = EstadoApp.RUNNING;
-          } else if (coolifyStatus.startsWith('exited')) {
-            // IMPORTANTE: Coolify a veces muestra "exited" aunque la app esté corriendo
-            // Si tiene dominio configurado y antes estaba RUNNING, asumir que sigue RUNNING
-            if (aplicacion.dominio && aplicacion.estado === EstadoApp.RUNNING) {
+          } else if (coolifyStatus.startsWith('exited') || coolifyStatus.startsWith('stopped')) {
+            // Si hay un deployment activo, Coolify puede mostrar exited/stopped mientras
+            // el container se está reconstruyendo — mantener como DEPLOYING en ese caso
+            if (hasActiveDeployment) {
+              estadoActualizado = EstadoApp.DEPLOYING;
+            } else if (aplicacion.dominio && aplicacion.estado === EstadoApp.RUNNING) {
               estadoActualizado = EstadoApp.RUNNING;
             } else {
               estadoActualizado = EstadoApp.STOPPED;
             }
-          } else if (coolifyStatus.startsWith('stopped')) {
-            estadoActualizado = EstadoApp.STOPPED;
           } else if (coolifyStatus.startsWith('starting') || coolifyStatus.startsWith('deploying')) {
             estadoActualizado = EstadoApp.DEPLOYING;
           } else if (coolifyStatus.startsWith('restarting')) {
-            // Si está reiniciando, mantener como RUNNING ya que es funcional
-            estadoActualizado = EstadoApp.RUNNING;
+            estadoActualizado = hasActiveDeployment ? EstadoApp.DEPLOYING : EstadoApp.RUNNING;
           } else if (coolifyStatus.startsWith('failed') || coolifyStatus.startsWith('error')) {
-            estadoActualizado = EstadoApp.FAILED;
+            estadoActualizado = hasActiveDeployment ? EstadoApp.DEPLOYING : EstadoApp.FAILED;
           }
 
           console.log(`🔄 Actualizando estado: ${aplicacion.estado} → ${estadoActualizado}`);
@@ -276,6 +280,21 @@ export const getMyAplicacion = async (
               data: { estado: estadoActualizado },
             });
             aplicacion.estado = estadoActualizado;
+
+            // Cerrar deployments IN_PROGRESS cuando la app llega a un estado final
+            if (hasActiveDeployment) {
+              if (estadoActualizado === EstadoApp.RUNNING) {
+                await prisma.deployment.updateMany({
+                  where: { aplicacionId: aplicacion.id, estado: 'IN_PROGRESS' },
+                  data: { estado: 'SUCCESS' },
+                });
+              } else if (estadoActualizado === EstadoApp.FAILED) {
+                await prisma.deployment.updateMany({
+                  where: { aplicacionId: aplicacion.id, estado: 'IN_PROGRESS' },
+                  data: { estado: 'FAILED' },
+                });
+              }
+            }
           }
         } catch (coolifyError) {
           console.error('Error syncing with Coolify:', coolifyError);
