@@ -52,6 +52,7 @@ export interface UpdateAplicacionDTO {
   nombre?: string;
   variablesEntorno?: Record<string, string>;
   ramaBranch?: string;
+  tipoAplicacion?: 'NIXPACKS' | 'STATIC' | 'DOCKERFILE' | 'DOCKER_COMPOSE';
   puerto?: number;
   installCommand?: string;
   buildCommand?: string;

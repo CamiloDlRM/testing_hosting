@@ -334,6 +334,7 @@ export const updateAplicacion = async (
       nombre,
       variablesEntorno,
       ramaBranch,
+      tipoAplicacion,
       puerto,
       installCommand,
       buildCommand,
@@ -343,6 +344,14 @@ export const updateAplicacion = async (
       limiteMemoria,
       limiteCpu,
     } = req.body;
+
+    const buildPackMap: Record<string, string> = {
+      NIXPACKS: 'nixpacks',
+      STATIC: 'static',
+      DOCKERFILE: 'dockerfile',
+      DOCKER_COMPOSE: 'dockercompose',
+    };
+    const newBuildPack = tipoAplicacion ? buildPackMap[tipoAplicacion] : undefined;
 
     // Verificar que la aplicación existe y pertenece al usuario
     const aplicacion = await prisma.aplicacion.findFirst({
@@ -372,17 +381,27 @@ export const updateAplicacion = async (
         }
       }
 
-      // Actualizar límites de recursos en Coolify si cambiaron
-      if (limiteMemoria !== undefined || limiteCpu !== undefined) {
+      // Actualizar configuración general + límites en Coolify
+      const coolifyUpdate: Record<string, any> = {};
+      if (nombre)                          coolifyUpdate.name = nombre;
+      if (ramaBranch)                      coolifyUpdate.git_branch = ramaBranch;
+      if (newBuildPack)                    coolifyUpdate.build_pack = newBuildPack;
+      if (puerto !== undefined)            coolifyUpdate.ports_exposes = puerto.toString();
+      if (installCommand !== undefined)    coolifyUpdate.install_command = installCommand ?? '';
+      if (buildCommand !== undefined)      coolifyUpdate.build_command = buildCommand ?? '';
+      if (startCommand !== undefined)      coolifyUpdate.start_command = startCommand ?? '';
+      if (baseDirectory !== undefined)     coolifyUpdate.base_directory = baseDirectory ?? '';
+      if (publishDirectory !== undefined)  coolifyUpdate.publish_directory = publishDirectory ?? '';
+      if (limiteMemoria !== undefined)     coolifyUpdate.limits_memory = limiteMemoria;
+      if (limiteCpu !== undefined)         coolifyUpdate.limits_cpus = limiteCpu;
+
+      if (Object.keys(coolifyUpdate).length > 0) {
         try {
-          await coolifyService.updateApplication(aplicacion.coolifyAppId, {
-            ...(limiteMemoria !== undefined && { limits_memory: limiteMemoria }),
-            ...(limiteCpu !== undefined && { limits_cpus: limiteCpu }),
-          });
+          await coolifyService.updateApplication(aplicacion.coolifyAppId, coolifyUpdate);
         } catch (coolifyError: any) {
           return res.status(500).json({
             success: false,
-            error: `Failed to update resource limits in Coolify: ${coolifyError.message}`,
+            error: `Failed to update application in Coolify: ${coolifyError.message}`,
           });
         }
       }
@@ -395,6 +414,8 @@ export const updateAplicacion = async (
         ...(nombre && { nombre }),
         ...(variablesEntorno && { variablesEntorno }),
         ...(ramaBranch && { ramaBranch }),
+        ...(tipoAplicacion && { tipoAplicacion: tipoAplicacion as any }),
+        ...(newBuildPack && { buildPack: newBuildPack }),
         ...(puerto !== undefined && { puerto }),
         ...(installCommand !== undefined && { installCommand }),
         ...(buildCommand !== undefined && { buildCommand }),

@@ -64,6 +64,10 @@ const updateValidation = [
     .optional()
     .isObject()
     .withMessage('Environment variables must be an object'),
+  body('tipoAplicacion')
+    .optional()
+    .isIn(['NIXPACKS', 'STATIC', 'DOCKERFILE', 'DOCKER_COMPOSE'])
+    .withMessage('tipoAplicacion must be one of: NIXPACKS, STATIC, DOCKERFILE, DOCKER_COMPOSE'),
   body('limiteMemoria')
     .optional()
     .matches(/^\d+(m|g|k)$/)

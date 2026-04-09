@@ -99,6 +99,7 @@ export interface UpdateAplicacionData {
   nombre?: string;
   variablesEntorno?: Record<string, string>;
   ramaBranch?: string;
+  tipoAplicacion?: TipoAplicacion;
   puerto?: number;
   installCommand?: string;
   buildCommand?: string;

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Aplicacion, EstadoApp } from '@/types';
+import { Aplicacion, EstadoApp, TipoAplicacion } from '@/types';
 import { aplicacionService } from '@/services/aplicacion.service';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -42,6 +42,21 @@ export function AppDashboard({ app, onSilentUpdate, onDelete }: AppDashboardProp
   const [logs, setLogs] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [copiedDomain, setCopiedDomain] = useState(false);
+
+  // Config editing state
+  const [editingConfig, setEditingConfig] = useState(false);
+  const [configForm, setConfigForm] = useState({
+    nombre: '',
+    ramaBranch: '',
+    tipoAplicacion: TipoAplicacion.NIXPACKS,
+    puerto: 3000,
+    installCommand: '',
+    buildCommand: '',
+    startCommand: '',
+    baseDirectory: '',
+    publishDirectory: '',
+  });
+  const [savingConfig, setSavingConfig] = useState(false);
 
   // Env var editing state
   const [editingEnvVars, setEditingEnvVars] = useState(false);
@@ -145,6 +160,49 @@ export function AppDashboard({ app, onSilentUpdate, onDelete }: AppDashboardProp
       setError(err.response?.data?.error || 'Error al obtener logs');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Config editing
+  const startEditConfig = () => {
+    setConfigForm({
+      nombre: app.nombre,
+      ramaBranch: app.ramaBranch || 'main',
+      tipoAplicacion: app.tipoAplicacion,
+      puerto: app.puerto,
+      installCommand: app.installCommand || '',
+      buildCommand: app.buildCommand || '',
+      startCommand: app.startCommand || '',
+      baseDirectory: app.baseDirectory || '',
+      publishDirectory: app.publishDirectory || '',
+    });
+    setEditingConfig(true);
+  };
+
+  const cancelEditConfig = () => setEditingConfig(false);
+
+  const saveConfig = async () => {
+    setSavingConfig(true);
+    setError('');
+    try {
+      await aplicacionService.updateAplicacion(app.id, {
+        nombre: configForm.nombre || undefined,
+        ramaBranch: configForm.ramaBranch || undefined,
+        tipoAplicacion: configForm.tipoAplicacion,
+        puerto: configForm.puerto,
+        installCommand: configForm.installCommand,
+        buildCommand: configForm.buildCommand,
+        startCommand: configForm.startCommand,
+        baseDirectory: configForm.baseDirectory,
+        publishDirectory: configForm.publishDirectory,
+      });
+      setEditingConfig(false);
+      setNeedsRedeploy(true);
+      onSilentUpdate();
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Error al guardar la configuración');
+    } finally {
+      setSavingConfig(false);
     }
   };
 
@@ -297,52 +355,174 @@ export function AppDashboard({ app, onSilentUpdate, onDelete }: AppDashboardProp
 
           {/* Configuración de Deployment */}
           <div className="border-t pt-4">
-            <h3 className="text-lg font-semibold mb-3">⚙️ Configuración</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
-              <div>
-                <p className="text-muted-foreground">Rama</p>
-                <p className="font-medium">{app.ramaBranch || 'main'}</p>
-              </div>
-              <div>
-                <p className="text-muted-foreground">Tipo</p>
-                <p className="font-medium">
-                  {app.tipoAplicacion === 'STATIC' && '📄 Static Site'}
-                  {app.tipoAplicacion === 'NIXPACKS' && '🔄 Auto-detect'}
-                  {app.tipoAplicacion === 'DOCKERFILE' && '🐳 Dockerfile'}
-                  {app.tipoAplicacion === 'DOCKER_COMPOSE' && '🐙 Docker Compose'}
-                </p>
-              </div>
-              {app.tipoAplicacion !== 'STATIC' && (
-                <div>
-                  <p className="text-muted-foreground">Puerto</p>
-                  <p className="font-medium">{app.puerto}</p>
-                </div>
-              )}
-              {app.buildCommand && (
-                <div>
-                  <p className="text-muted-foreground">Build Command</p>
-                  <p className="font-mono text-xs">{app.buildCommand}</p>
-                </div>
-              )}
-              {app.startCommand && (
-                <div>
-                  <p className="text-muted-foreground">Start Command</p>
-                  <p className="font-mono text-xs">{app.startCommand}</p>
-                </div>
-              )}
-              {app.publishDirectory && (
-                <div>
-                  <p className="text-muted-foreground">Publish Directory</p>
-                  <p className="font-mono text-xs">{app.publishDirectory}</p>
-                </div>
-              )}
-              {app.baseDirectory && (
-                <div>
-                  <p className="text-muted-foreground">Base Directory</p>
-                  <p className="font-mono text-xs">{app.baseDirectory}</p>
-                </div>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-semibold">⚙️ Configuración</h3>
+              {!editingConfig && (
+                <Button onClick={startEditConfig} variant="outline" size="sm">
+                  <Pencil className="h-3.5 w-3.5 mr-1.5" />
+                  Editar
+                </Button>
               )}
             </div>
+
+            {editingConfig ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-sm text-muted-foreground">Nombre</label>
+                    <Input
+                      value={configForm.nombre}
+                      onChange={(e) => setConfigForm((f) => ({ ...f, nombre: e.target.value }))}
+                      placeholder="nombre-de-la-app"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-sm text-muted-foreground">Rama</label>
+                    <Input
+                      value={configForm.ramaBranch}
+                      onChange={(e) => setConfigForm((f) => ({ ...f, ramaBranch: e.target.value }))}
+                      placeholder="main"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-sm text-muted-foreground">Tipo de aplicación</label>
+                    <select
+                      value={configForm.tipoAplicacion}
+                      onChange={(e) =>
+                        setConfigForm((f) => ({ ...f, tipoAplicacion: e.target.value as TipoAplicacion }))
+                      }
+                      className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    >
+                      <option value="NIXPACKS">🔄 Auto-detect (Nixpacks)</option>
+                      <option value="STATIC">📄 Static Site</option>
+                      <option value="DOCKERFILE">🐳 Dockerfile</option>
+                      <option value="DOCKER_COMPOSE">🐙 Docker Compose</option>
+                    </select>
+                  </div>
+                  {configForm.tipoAplicacion !== TipoAplicacion.STATIC && (
+                    <div className="space-y-1">
+                      <label className="text-sm text-muted-foreground">Puerto</label>
+                      <Input
+                        type="number"
+                        value={configForm.puerto}
+                        onChange={(e) =>
+                          setConfigForm((f) => ({ ...f, puerto: parseInt(e.target.value) || 3000 }))
+                        }
+                        placeholder="3000"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-sm text-muted-foreground">Install Command <span className="text-xs">(opcional)</span></label>
+                    <Input
+                      value={configForm.installCommand}
+                      onChange={(e) => setConfigForm((f) => ({ ...f, installCommand: e.target.value }))}
+                      placeholder="npm install"
+                      className="font-mono text-sm"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-sm text-muted-foreground">Build Command <span className="text-xs">(opcional)</span></label>
+                    <Input
+                      value={configForm.buildCommand}
+                      onChange={(e) => setConfigForm((f) => ({ ...f, buildCommand: e.target.value }))}
+                      placeholder="npm run build"
+                      className="font-mono text-sm"
+                    />
+                  </div>
+                  {configForm.tipoAplicacion !== TipoAplicacion.STATIC && (
+                    <div className="space-y-1">
+                      <label className="text-sm text-muted-foreground">Start Command <span className="text-xs">(opcional)</span></label>
+                      <Input
+                        value={configForm.startCommand}
+                        onChange={(e) => setConfigForm((f) => ({ ...f, startCommand: e.target.value }))}
+                        placeholder="npm start"
+                        className="font-mono text-sm"
+                      />
+                    </div>
+                  )}
+                  <div className="space-y-1">
+                    <label className="text-sm text-muted-foreground">Base Directory <span className="text-xs">(opcional)</span></label>
+                    <Input
+                      value={configForm.baseDirectory}
+                      onChange={(e) => setConfigForm((f) => ({ ...f, baseDirectory: e.target.value }))}
+                      placeholder="/app"
+                      className="font-mono text-sm"
+                    />
+                  </div>
+                  {configForm.tipoAplicacion === TipoAplicacion.STATIC && (
+                    <div className="space-y-1">
+                      <label className="text-sm text-muted-foreground">Publish Directory <span className="text-xs">(opcional)</span></label>
+                      <Input
+                        value={configForm.publishDirectory}
+                        onChange={(e) => setConfigForm((f) => ({ ...f, publishDirectory: e.target.value }))}
+                        placeholder="dist"
+                        className="font-mono text-sm"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={saveConfig} disabled={savingConfig}>
+                    <Check className="h-3.5 w-3.5 mr-1.5" />
+                    {savingConfig ? 'Guardando...' : 'Guardar'}
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={cancelEditConfig} disabled={savingConfig}>
+                    Cancelar
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+                <div>
+                  <p className="text-muted-foreground">Rama</p>
+                  <p className="font-medium">{app.ramaBranch || 'main'}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Tipo</p>
+                  <p className="font-medium">
+                    {app.tipoAplicacion === 'STATIC' && '📄 Static Site'}
+                    {app.tipoAplicacion === 'NIXPACKS' && '🔄 Auto-detect'}
+                    {app.tipoAplicacion === 'DOCKERFILE' && '🐳 Dockerfile'}
+                    {app.tipoAplicacion === 'DOCKER_COMPOSE' && '🐙 Docker Compose'}
+                  </p>
+                </div>
+                {app.tipoAplicacion !== 'STATIC' && (
+                  <div>
+                    <p className="text-muted-foreground">Puerto</p>
+                    <p className="font-medium">{app.puerto}</p>
+                  </div>
+                )}
+                {app.buildCommand && (
+                  <div>
+                    <p className="text-muted-foreground">Build Command</p>
+                    <p className="font-mono text-xs">{app.buildCommand}</p>
+                  </div>
+                )}
+                {app.startCommand && (
+                  <div>
+                    <p className="text-muted-foreground">Start Command</p>
+                    <p className="font-mono text-xs">{app.startCommand}</p>
+                  </div>
+                )}
+                {app.publishDirectory && (
+                  <div>
+                    <p className="text-muted-foreground">Publish Directory</p>
+                    <p className="font-mono text-xs">{app.publishDirectory}</p>
+                  </div>
+                )}
+                {app.baseDirectory && (
+                  <div>
+                    <p className="text-muted-foreground">Base Directory</p>
+                    <p className="font-mono text-xs">{app.baseDirectory}</p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Alert: redeploy requerido tras cambio de variables */}
