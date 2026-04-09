@@ -135,7 +135,6 @@ export function DashboardPage() {
               <AppDashboard
                 key={app.id}
                 app={app}
-                onUpdate={fetchApps}
                 onSilentUpdate={() => fetchApps(true)}
                 onDelete={handleAppDeleted}
               />

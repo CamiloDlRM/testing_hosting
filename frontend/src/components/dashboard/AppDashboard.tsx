@@ -29,14 +29,13 @@ import { es } from 'date-fns/locale';
 
 interface AppDashboardProps {
   app: Aplicacion;
-  onUpdate: () => void;
   onSilentUpdate: () => void;
   onDelete: () => void;
 }
 
 const POLLING_INTERVAL = 5000;
 
-export function AppDashboard({ app, onUpdate, onSilentUpdate, onDelete }: AppDashboardProps) {
+export function AppDashboard({ app, onSilentUpdate, onDelete }: AppDashboardProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [showLogs, setShowLogs] = useState(false);
