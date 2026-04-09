@@ -191,10 +191,11 @@ export function AppDashboard({ app, onSilentUpdate, onDelete }: AppDashboardProp
   const removeEnvPair = (index: number) =>
     setEnvVarPairs((prev) => prev.filter((_, i) => i !== index));
 
-  const canStart = app.estado === EstadoApp.STOPPED && !needsRedeploy;
-  const canStop = app.estado === EstadoApp.RUNNING && !needsRedeploy;
-  const canRestart = app.estado === EstadoApp.RUNNING && !needsRedeploy;
-  const canDeploy = [EstadoApp.RUNNING, EstadoApp.STOPPED, EstadoApp.FAILED].includes(app.estado);
+  const actionsDisabled = isLoading || pollAfterAction;
+  const canStart = app.estado === EstadoApp.STOPPED && !needsRedeploy && !pollAfterAction;
+  const canStop = app.estado === EstadoApp.RUNNING && !needsRedeploy && !pollAfterAction;
+  const canRestart = app.estado === EstadoApp.RUNNING && !needsRedeploy && !pollAfterAction;
+  const canDeploy = [EstadoApp.RUNNING, EstadoApp.STOPPED, EstadoApp.FAILED].includes(app.estado) && !pollAfterAction;
   const canViewLogs = !needsRedeploy;
 
   return (
@@ -210,13 +211,13 @@ export function AppDashboard({ app, onSilentUpdate, onDelete }: AppDashboardProp
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
-              {isDeploying && (
+              {(isDeploying || pollAfterAction) && (
                 <span className="flex items-center gap-1.5 text-xs text-amber-600 font-medium">
                   <span className="relative flex h-2 w-2">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
                     <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500" />
                   </span>
-                  Actualizando...
+                  {isDeploying ? 'Desplegando...' : 'Aplicando...'}
                 </span>
               )}
               <Badge className={getEstadoColor(app.estado)}>{getEstadoText(app.estado)}</Badge>
@@ -359,31 +360,31 @@ export function AppDashboard({ app, onSilentUpdate, onDelete }: AppDashboardProp
           {/* Acciones */}
           <div className="flex flex-wrap gap-2">
             {canDeploy && (
-              <Button onClick={handleDeploy} disabled={isLoading}>
+              <Button onClick={handleDeploy} disabled={actionsDisabled}>
                 <Rocket className="h-4 w-4 mr-2" />
                 {needsRedeploy ? 'Redeploy (requerido)' : app.estado === EstadoApp.FAILED ? 'Reintentar Deploy' : 'Redeploy'}
               </Button>
             )}
             {canStart && (
-              <Button onClick={handleRestart} disabled={isLoading} variant="outline">
+              <Button onClick={handleRestart} disabled={actionsDisabled} variant="outline">
                 <Play className="h-4 w-4 mr-2" />
                 Iniciar
               </Button>
             )}
             {canStop && (
-              <Button onClick={handleStop} disabled={isLoading} variant="outline">
+              <Button onClick={handleStop} disabled={actionsDisabled} variant="outline">
                 <Square className="h-4 w-4 mr-2" />
                 Detener
               </Button>
             )}
             {canRestart && (
-              <Button onClick={handleRestart} disabled={isLoading} variant="outline">
+              <Button onClick={handleRestart} disabled={actionsDisabled} variant="outline">
                 <RotateCw className="h-4 w-4 mr-2" />
                 Reiniciar
               </Button>
             )}
             {canViewLogs && (
-              <Button onClick={handleViewLogs} disabled={isLoading} variant="outline">
+              <Button onClick={handleViewLogs} disabled={actionsDisabled} variant="outline">
                 <FileText className="h-4 w-4 mr-2" />
                 {showLogs ? 'Ocultar Logs' : 'Ver Logs'}
               </Button>
