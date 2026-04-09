@@ -175,7 +175,7 @@ export function AppDashboard({ app, onUpdate, onSilentUpdate, onDelete }: AppDas
       await aplicacionService.updateAplicacion(app.id, { variablesEntorno: vars });
       setEditingEnvVars(false);
       setNeedsRedeploy(true);
-      onUpdate();
+      onSilentUpdate();
     } catch (err: any) {
       setError(err.response?.data?.error || 'Error al guardar las variables de entorno');
     } finally {
