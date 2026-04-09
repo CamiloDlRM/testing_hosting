@@ -252,7 +252,11 @@ export const getMyAplicacion = async (
           // IMPORTANTE: Coolify puede devolver "running:unknown", "running:healthy", etc.
           // Por eso usamos startsWith() en lugar de comparación exacta
           if (coolifyStatus.startsWith('running')) {
-            estadoActualizado = EstadoApp.RUNNING;
+            // No sobreescribir STOPPED → RUNNING: el usuario detuvo la app intencionalmente
+            // y Coolify puede seguir reportando "running" por unos segundos tras el stop
+            if (aplicacion.estado !== EstadoApp.STOPPED) {
+              estadoActualizado = EstadoApp.RUNNING;
+            }
           } else if (coolifyStatus.startsWith('exited') || coolifyStatus.startsWith('stopped')) {
             // Si hay un deployment activo, Coolify puede mostrar exited/stopped mientras
             // el container se está reconstruyendo — mantener como DEPLOYING en ese caso

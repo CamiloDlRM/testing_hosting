@@ -48,6 +48,7 @@ export function AppDashboard({ app, onUpdate, onSilentUpdate, onDelete }: AppDas
   const [editingEnvVars, setEditingEnvVars] = useState(false);
   const [envVarPairs, setEnvVarPairs] = useState<{ key: string; value: string }[]>([]);
   const [savingEnvVars, setSavingEnvVars] = useState(false);
+  const [needsRedeploy, setNeedsRedeploy] = useState(false);
 
   const hasActiveDeployment = app.deployments?.some((d) => d.estado === 'IN_PROGRESS') ?? false;
   const isDeploying =
@@ -104,8 +105,10 @@ export function AppDashboard({ app, onUpdate, onSilentUpdate, onDelete }: AppDas
     }
   };
 
-  const handleDeploy = () =>
+  const handleDeploy = () => {
+    setNeedsRedeploy(false);
     handleAction(() => aplicacionService.deployAplicacion(app.id), 'Deployment iniciado');
+  };
 
   const handleStop = () =>
     handleAction(() => aplicacionService.stopAplicacion(app.id), 'Aplicación detenida');
@@ -171,6 +174,7 @@ export function AppDashboard({ app, onUpdate, onSilentUpdate, onDelete }: AppDas
       }
       await aplicacionService.updateAplicacion(app.id, { variablesEntorno: vars });
       setEditingEnvVars(false);
+      setNeedsRedeploy(true);
       onUpdate();
     } catch (err: any) {
       setError(err.response?.data?.error || 'Error al guardar las variables de entorno');
@@ -188,10 +192,11 @@ export function AppDashboard({ app, onUpdate, onSilentUpdate, onDelete }: AppDas
   const removeEnvPair = (index: number) =>
     setEnvVarPairs((prev) => prev.filter((_, i) => i !== index));
 
-  const canStart = app.estado === EstadoApp.STOPPED;
-  const canStop = app.estado === EstadoApp.RUNNING;
-  const canRestart = app.estado === EstadoApp.RUNNING;
+  const canStart = app.estado === EstadoApp.STOPPED && !needsRedeploy;
+  const canStop = app.estado === EstadoApp.RUNNING && !needsRedeploy;
+  const canRestart = app.estado === EstadoApp.RUNNING && !needsRedeploy;
   const canDeploy = [EstadoApp.RUNNING, EstadoApp.STOPPED, EstadoApp.FAILED].includes(app.estado);
+  const canViewLogs = !needsRedeploy;
 
   return (
     <div className="space-y-6">
@@ -340,12 +345,24 @@ export function AppDashboard({ app, onUpdate, onSilentUpdate, onDelete }: AppDas
             </div>
           </div>
 
+          {/* Alert: redeploy requerido tras cambio de variables */}
+          {needsRedeploy && (
+            <Alert className="border-amber-300 bg-amber-50">
+              <AlertCircle className="h-4 w-4 text-amber-600" />
+              <AlertDescription className="text-amber-800">
+                <strong>Redeploy requerido.</strong> Las variables de entorno fueron actualizadas.
+                Para que los cambios tomen efecto debes hacer un redeploy. Los demás controles
+                están bloqueados hasta entonces.
+              </AlertDescription>
+            </Alert>
+          )}
+
           {/* Acciones */}
           <div className="flex flex-wrap gap-2">
             {canDeploy && (
               <Button onClick={handleDeploy} disabled={isLoading}>
                 <Rocket className="h-4 w-4 mr-2" />
-                {app.estado === EstadoApp.FAILED ? 'Reintentar Deploy' : 'Redeploy'}
+                {needsRedeploy ? 'Redeploy (requerido)' : app.estado === EstadoApp.FAILED ? 'Reintentar Deploy' : 'Redeploy'}
               </Button>
             )}
             {canStart && (
@@ -366,10 +383,12 @@ export function AppDashboard({ app, onUpdate, onSilentUpdate, onDelete }: AppDas
                 Reiniciar
               </Button>
             )}
-            <Button onClick={handleViewLogs} disabled={isLoading} variant="outline">
-              <FileText className="h-4 w-4 mr-2" />
-              {showLogs ? 'Ocultar Logs' : 'Ver Logs'}
-            </Button>
+            {canViewLogs && (
+              <Button onClick={handleViewLogs} disabled={isLoading} variant="outline">
+                <FileText className="h-4 w-4 mr-2" />
+                {showLogs ? 'Ocultar Logs' : 'Ver Logs'}
+              </Button>
+            )}
           </div>
 
           {/* Logs */}
