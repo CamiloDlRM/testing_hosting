@@ -195,12 +195,23 @@ class CoolifyService {
         };
 
         try {
-          // Usar POST para crear la variable (no PATCH)
-          const response = await this.api.post(`/applications/${appId}/envs`, payload);
-          console.log(`  ✅ ${key} configurada - Status: ${response.status}`);
-        } catch (envError: any) {
-          console.error(`  ❌ Error al configurar ${key}:`, envError.response?.data || envError.message);
-          throw envError;
+          await this.api.post(`/applications/${appId}/envs`, payload);
+          console.log(`  ✅ ${key} creada`);
+        } catch (postError: any) {
+          const msg = postError.response?.data?.message || postError.message || '';
+          if (msg.toLowerCase().includes('already exists')) {
+            // La variable ya existe — usar PATCH para actualizarla
+            try {
+              await this.api.patch(`/applications/${appId}/envs`, payload);
+              console.log(`  ✅ ${key} actualizada (PATCH)`);
+            } catch (patchError: any) {
+              console.error(`  ❌ Error al actualizar ${key}:`, patchError.response?.data || patchError.message);
+              throw patchError;
+            }
+          } else {
+            console.error(`  ❌ Error al crear ${key}:`, postError.response?.data || postError.message);
+            throw postError;
+          }
         }
       }
 
