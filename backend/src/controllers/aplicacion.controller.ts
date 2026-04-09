@@ -355,10 +355,8 @@ export const updateAplicacion = async (
 
     // Verificar que la aplicación existe y pertenece al usuario
     const aplicacion = await prisma.aplicacion.findFirst({
-      where: {
-        id: appId,
-        userId,
-      },
+      where: { id: appId, userId },
+      include: { user: { select: { nombre: true } } },
     });
 
     if (!aplicacion) {
@@ -367,6 +365,11 @@ export const updateAplicacion = async (
         error: 'Application not found or does not belong to you',
       });
     }
+
+    // Regenerar dominio si cambió el nombre
+    const newDominio = nombre
+      ? generateDomain(nombre, (aplicacion as any).user.nombre)
+      : undefined;
 
     if (aplicacion.coolifyAppId) {
       // Actualizar variables de entorno en Coolify
@@ -384,6 +387,7 @@ export const updateAplicacion = async (
       // Actualizar configuración general + límites en Coolify
       const coolifyUpdate: Record<string, any> = {};
       if (nombre)                          coolifyUpdate.name = nombre;
+      if (newDominio)                      coolifyUpdate.domains = `http://${newDominio}`;
       if (ramaBranch)                      coolifyUpdate.git_branch = ramaBranch;
       if (newBuildPack)                    coolifyUpdate.build_pack = newBuildPack;
       if (puerto !== undefined)            coolifyUpdate.ports_exposes = puerto.toString();
@@ -412,6 +416,7 @@ export const updateAplicacion = async (
       where: { id: aplicacion.id },
       data: {
         ...(nombre && { nombre }),
+        ...(newDominio && { dominio: newDominio }),
         ...(variablesEntorno && { variablesEntorno }),
         ...(ramaBranch && { ramaBranch }),
         ...(tipoAplicacion && { tipoAplicacion: tipoAplicacion as any }),
