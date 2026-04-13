@@ -78,15 +78,17 @@ function parseGithubRepo(repositorioGit: string): { owner: string; repo: string 
   return null;
 }
 
-async function fetchComposeFile(owner: string, repo: string, branch: string): Promise<string | null> {
-  const filenames = ['docker-compose.yml', 'docker-compose.yaml'];
+async function fetchComposeFile(owner: string, repo: string, branch: string): Promise<{ content: string; filename: string } | null> {
+  const filenames = ['docker-compose.yml', 'docker-compose.yaml', 'compose.yml', 'compose.yaml'];
   for (const filename of filenames) {
     try {
       const url = `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${filename}`;
+      console.log(`🔍 Trying compose file: ${url}`);
       const response = await axios.get<string>(url, { timeout: 8000, responseType: 'text' });
-      return response.data;
-    } catch {
-      // try next filename
+      console.log(`✅ Found compose file: ${filename}`);
+      return { content: response.data, filename };
+    } catch (err: any) {
+      console.log(`⚠️ Not found: ${filename} (${err.response?.status ?? err.message})`);
     }
   }
   return null;
@@ -97,6 +99,7 @@ export interface ComposeValidationResult {
   error?: string;
   dbServicesFound?: string[];
   serviceNames?: string[]; // servicios válidos (no BD)
+  composeFilename?: string; // nombre del archivo encontrado (ej: 'docker-compose.yml')
 }
 
 export async function validateComposeHasNoDB(
@@ -109,10 +112,12 @@ export async function validateComposeHasNoDB(
     return { valid: false, error: 'Only GitHub repositories are supported for Docker Compose deployments.' };
   }
 
-  const rawYaml = await fetchComposeFile(parsed.owner, parsed.repo, branch);
-  if (!rawYaml) {
+  const composeFile = await fetchComposeFile(parsed.owner, parsed.repo, branch);
+  if (!composeFile) {
     return { valid: false, error: 'No docker-compose.yml found in the repository root.' };
   }
+
+  const { content: rawYaml, filename: composeFilename } = composeFile;
 
   let compose: any;
   try {
@@ -153,5 +158,5 @@ export async function validateComposeHasNoDB(
     };
   }
 
-  return { valid: true, serviceNames: validServices };
+  return { valid: true, serviceNames: validServices, composeFilename };
 }

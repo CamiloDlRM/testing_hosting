@@ -103,6 +103,10 @@ class CoolifyService {
       }
 
       // Dominios
+      if (config.docker_compose_location) {
+        payload.docker_compose_location = config.docker_compose_location;
+      }
+
       if (config.docker_compose_domains) {
         // Para dockercompose: { "service_name": "http://domain.com:port" }
         payload.docker_compose_domains = config.docker_compose_domains;

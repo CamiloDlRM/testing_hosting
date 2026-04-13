@@ -103,6 +103,8 @@ export interface CoolifyAppConfig {
 
   // Para Docker Compose: dominios por servicio [{ name: "service_name", domain: "http://domain.com" }]
   docker_compose_domains?: Array<{ name: string; domain: string }>;
+  // Ruta del archivo compose dentro del repo (ej: "/docker-compose.yml")
+  docker_compose_location?: string;
 }
 
 export interface CoolifyDeploymentResponse {

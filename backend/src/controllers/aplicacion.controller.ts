@@ -46,6 +46,7 @@ export const createAplicacion = async (
 
     // Si es Docker Compose, validar que el compose del repo no tenga BDs
     let composeMainService: string | undefined;
+    let composeFilename: string | undefined;
     if ((tipoAplicacion || 'NIXPACKS') === 'DOCKER_COMPOSE') {
       const composeValidation = await validateComposeHasNoDB(
         repositorioGit,
@@ -58,6 +59,7 @@ export const createAplicacion = async (
         });
       }
       composeMainService = composeValidation.serviceNames?.[0];
+      composeFilename = composeValidation.composeFilename;
     }
 
     // Obtener el usuario para generar el dominio
@@ -130,8 +132,12 @@ export const createAplicacion = async (
         ? `http://${dominio}:${puerto}`
         : `http://${dominio}`;
 
-      if (tipoApp === 'DOCKER_COMPOSE' && composeMainService) {
-        coolifyConfig.docker_compose_domains = [{ name: composeMainService, domain: dominioConPuerto }];
+      if (tipoApp === 'DOCKER_COMPOSE') {
+        // Indicar a Coolify la ubicación exacta del archivo compose encontrado
+        coolifyConfig.docker_compose_location = `/${composeFilename ?? 'docker-compose.yaml'}`;
+        if (composeMainService) {
+          coolifyConfig.docker_compose_domains = [{ name: composeMainService, domain: dominioConPuerto }];
+        }
       } else {
         coolifyConfig.domains = `http://${dominio}`;
       }
