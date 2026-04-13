@@ -310,7 +310,11 @@ export function CreateAppForm({ onSuccess }: CreateAppFormProps) {
           {/* Puerto (solo si no es static) */}
           {showPortField && (
             <div className="space-y-2">
-              <Label htmlFor="puerto">Puerto</Label>
+              <Label htmlFor="puerto">
+                {formData.tipoAplicacion === TipoAplicacion.DOCKER_COMPOSE
+                  ? 'Puerto expuesto del servicio principal'
+                  : 'Puerto'}
+              </Label>
               <Input
                 id="puerto"
                 name="puerto"
@@ -321,7 +325,9 @@ export function CreateAppForm({ onSuccess }: CreateAppFormProps) {
                 disabled={isLoading}
               />
               <p className="text-xs text-muted-foreground">
-                Puerto donde tu aplicación escucha (default: 3000)
+                {formData.tipoAplicacion === TipoAplicacion.DOCKER_COMPOSE
+                  ? 'Puerto del contenedor principal donde escucha el tráfico. El proxy lo enrutará automáticamente (ej: si escucha en 3000, el dominio apuntará ahí).'
+                  : 'Puerto donde tu aplicación escucha (default: 3000)'}
               </p>
             </div>
           )}
@@ -514,52 +520,60 @@ export function CreateAppForm({ onSuccess }: CreateAppFormProps) {
           </div>
 
           {/* Volúmenes */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <Label>Volúmenes (Opcional)</Label>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={addVolume}
-                disabled={isLoading}
-              >
-                <Plus className="h-4 w-4 mr-1" />
-                Agregar
-              </Button>
+          {formData.tipoAplicacion === TipoAplicacion.DOCKER_COMPOSE ? (
+            <div className="p-3 bg-muted rounded-md">
+              <p className="text-xs text-muted-foreground">
+                Con Docker Compose los volúmenes se definen por servicio directamente en el <code>docker-compose.yml</code> de tu repositorio.
+              </p>
             </div>
-            {volumes.length > 0 && (
-              <div className="grid grid-cols-2 gap-1 mb-1">
-                <span className="text-xs text-muted-foreground px-1">Source (volumen o path host)</span>
-                <span className="text-xs text-muted-foreground px-1">Target (path en contenedor)</span>
-              </div>
-            )}
-            {volumes.map((vol, index) => (
-              <div key={index} className="flex gap-2">
-                <Input
-                  placeholder="mi_volumen"
-                  value={vol.source}
-                  onChange={(e) => updateVolume(index, 'source', e.target.value)}
-                  disabled={isLoading}
-                />
-                <Input
-                  placeholder="/app/data"
-                  value={vol.target}
-                  onChange={(e) => updateVolume(index, 'target', e.target.value)}
-                  disabled={isLoading}
-                />
+          ) : (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <Label>Volúmenes (Opcional)</Label>
                 <Button
                   type="button"
-                  variant="destructive"
-                  size="icon"
-                  onClick={() => removeVolume(index)}
+                  variant="outline"
+                  size="sm"
+                  onClick={addVolume}
                   disabled={isLoading}
                 >
-                  ×
+                  <Plus className="h-4 w-4 mr-1" />
+                  Agregar
                 </Button>
               </div>
-            ))}
-          </div>
+              {volumes.length > 0 && (
+                <div className="grid grid-cols-2 gap-1 mb-1">
+                  <span className="text-xs text-muted-foreground px-1">Source (volumen o path host)</span>
+                  <span className="text-xs text-muted-foreground px-1">Target (path en contenedor)</span>
+                </div>
+              )}
+              {volumes.map((vol, index) => (
+                <div key={index} className="flex gap-2">
+                  <Input
+                    placeholder="mi_volumen"
+                    value={vol.source}
+                    onChange={(e) => updateVolume(index, 'source', e.target.value)}
+                    disabled={isLoading}
+                  />
+                  <Input
+                    placeholder="/app/data"
+                    value={vol.target}
+                    onChange={(e) => updateVolume(index, 'target', e.target.value)}
+                    disabled={isLoading}
+                  />
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="icon"
+                    onClick={() => removeVolume(index)}
+                    disabled={isLoading}
+                  >
+                    ×
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
 
           <Button type="submit" className="w-full" disabled={isLoading}>
             {isLoading ? 'Creando y Desplegando...' : 'Crear y Deployar Aplicación'}

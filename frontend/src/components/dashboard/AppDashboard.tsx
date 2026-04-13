@@ -443,7 +443,11 @@ export function AppDashboard({ app, onSilentUpdate, onDelete }: AppDashboardProp
                   </div>
                   {configForm.tipoAplicacion !== TipoAplicacion.STATIC && (
                     <div className="space-y-1">
-                      <label className="text-sm text-muted-foreground">Puerto</label>
+                      <label className="text-sm text-muted-foreground">
+                        {configForm.tipoAplicacion === TipoAplicacion.DOCKER_COMPOSE
+                          ? 'Puerto expuesto del servicio principal'
+                          : 'Puerto'}
+                      </label>
                       <Input
                         type="number"
                         value={configForm.puerto}
@@ -452,6 +456,11 @@ export function AppDashboard({ app, onSilentUpdate, onDelete }: AppDashboardProp
                         }
                         placeholder="3000"
                       />
+                      {configForm.tipoAplicacion === TipoAplicacion.DOCKER_COMPOSE && (
+                        <p className="text-xs text-muted-foreground">
+                          Puerto del contenedor principal. El proxy lo enrutará automáticamente.
+                        </p>
+                      )}
                     </div>
                   )}
                 </div>
@@ -535,7 +544,9 @@ export function AppDashboard({ app, onSilentUpdate, onDelete }: AppDashboardProp
                 </div>
                 {app.tipoAplicacion !== 'STATIC' && (
                   <div>
-                    <p className="text-muted-foreground">Puerto</p>
+                    <p className="text-muted-foreground">
+                      {app.tipoAplicacion === 'DOCKER_COMPOSE' ? 'Puerto expuesto del servicio principal' : 'Puerto'}
+                    </p>
                     <p className="font-medium">{app.puerto}</p>
                   </div>
                 )}
@@ -698,77 +709,85 @@ export function AppDashboard({ app, onSilentUpdate, onDelete }: AppDashboardProp
 
           {/* Volúmenes */}
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <h4 className="font-semibold">Volúmenes</h4>
-              {!editingVolumes && (
-                <Button onClick={startEditVolumes} variant="outline" size="sm">
-                  Editar
-                </Button>
-              )}
-            </div>
-            {editingVolumes ? (
-              <div className="space-y-2">
-                {volumePairs.length > 0 && (
-                  <div className="grid grid-cols-2 gap-1 mb-1 pr-10">
-                    <span className="text-xs text-muted-foreground px-1">Source</span>
-                    <span className="text-xs text-muted-foreground px-1">Target</span>
-                  </div>
-                )}
-                {volumePairs.map((vol, index) => (
-                  <div key={index} className="flex gap-2">
-                    <Input
-                      placeholder="mi_volumen"
-                      value={vol.source}
-                      onChange={(e) => updateVolumePair(index, 'source', e.target.value)}
-                      className="font-mono text-sm flex-1"
-                    />
-                    <Input
-                      placeholder="/app/data"
-                      value={vol.target}
-                      onChange={(e) => updateVolumePair(index, 'target', e.target.value)}
-                      className="font-mono text-sm flex-1"
-                    />
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => removeVolumePair(index)}
-                      className="shrink-0"
-                    >
-                      <X className="h-4 w-4" />
+            <h4 className="font-semibold mb-2">Volúmenes</h4>
+            {app.tipoAplicacion === 'DOCKER_COMPOSE' ? (
+              <p className="text-sm text-muted-foreground">
+                Con Docker Compose los volúmenes se definen por servicio directamente en el <code>docker-compose.yml</code> de tu repositorio.
+              </p>
+            ) : (
+              <>
+                {!editingVolumes && (
+                  <div className="flex justify-end mb-2">
+                    <Button onClick={startEditVolumes} variant="outline" size="sm">
+                      Editar
                     </Button>
                   </div>
-                ))}
-                <Button variant="outline" size="sm" onClick={addVolumePair}>
-                  <Plus className="h-3.5 w-3.5 mr-1.5" />
-                  Agregar volumen
-                </Button>
-                <div className="flex gap-2 pt-1">
-                  <Button size="sm" onClick={saveVolumes} disabled={savingVolumes}>
-                    <Check className="h-3.5 w-3.5 mr-1.5" />
-                    {savingVolumes ? 'Guardando...' : 'Guardar'}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={cancelEditVolumes}
-                    disabled={savingVolumes}
-                  >
-                    Cancelar
-                  </Button>
-                </div>
-              </div>
-            ) : Array.isArray(app.volumes) && app.volumes.length > 0 ? (
-              <div className="bg-muted p-4 rounded-lg space-y-1">
-                {app.volumes.map((vol, i) => (
-                  <div key={i} className="text-sm font-mono">
-                    <span className="font-semibold">{vol.source}</span>
-                    {' → '}
-                    {vol.target}
+                )}
+                {editingVolumes ? (
+                  <div className="space-y-2">
+                    {volumePairs.length > 0 && (
+                      <div className="grid grid-cols-2 gap-1 mb-1 pr-10">
+                        <span className="text-xs text-muted-foreground px-1">Source</span>
+                        <span className="text-xs text-muted-foreground px-1">Target</span>
+                      </div>
+                    )}
+                    {volumePairs.map((vol, index) => (
+                      <div key={index} className="flex gap-2">
+                        <Input
+                          placeholder="mi_volumen"
+                          value={vol.source}
+                          onChange={(e) => updateVolumePair(index, 'source', e.target.value)}
+                          className="font-mono text-sm flex-1"
+                        />
+                        <Input
+                          placeholder="/app/data"
+                          value={vol.target}
+                          onChange={(e) => updateVolumePair(index, 'target', e.target.value)}
+                          className="font-mono text-sm flex-1"
+                        />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeVolumePair(index)}
+                          className="shrink-0"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                    <Button variant="outline" size="sm" onClick={addVolumePair}>
+                      <Plus className="h-3.5 w-3.5 mr-1.5" />
+                      Agregar volumen
+                    </Button>
+                    <div className="flex gap-2 pt-1">
+                      <Button size="sm" onClick={saveVolumes} disabled={savingVolumes}>
+                        <Check className="h-3.5 w-3.5 mr-1.5" />
+                        {savingVolumes ? 'Guardando...' : 'Guardar'}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={cancelEditVolumes}
+                        disabled={savingVolumes}
+                      >
+                        Cancelar
+                      </Button>
+                    </div>
                   </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">No hay volúmenes configurados.</p>
+                ) : Array.isArray(app.volumes) && app.volumes.length > 0 ? (
+                  <div className="bg-muted p-4 rounded-lg space-y-1">
+                    {app.volumes.map((vol, i) => (
+                      <div key={i} className="text-sm font-mono">
+                        <span className="font-semibold">{vol.source}</span>
+                        {' → '}
+                        {vol.target}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No hay volúmenes configurados.</p>
+                )}
+              </>
             )}
           </div>
 
