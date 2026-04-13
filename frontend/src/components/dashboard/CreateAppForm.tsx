@@ -73,6 +73,7 @@ export function CreateAppForm({ onSuccess }: CreateAppFormProps) {
     ramaBranch: 'main',
     tipoAplicacion: TipoAplicacion.NIXPACKS,
     puerto: 3000,
+    composeServiceName: '',
     installCommand: '',
     buildCommand: '',
     startCommand: '',
@@ -167,6 +168,11 @@ export function CreateAppForm({ onSuccess }: CreateAppFormProps) {
       // Solo agregar puerto si no es STATIC
       if (formData.tipoAplicacion !== TipoAplicacion.STATIC) {
         payload.puerto = formData.puerto;
+      }
+
+      // Para Docker Compose: servicio a exponer
+      if (formData.tipoAplicacion === TipoAplicacion.DOCKER_COMPOSE && formData.composeServiceName.trim()) {
+        payload.composeServiceName = formData.composeServiceName.trim();
       }
 
       // Agregar comandos solo si tienen valor
@@ -307,12 +313,33 @@ export function CreateAppForm({ onSuccess }: CreateAppFormProps) {
             </p>
           </div>
 
+          {/* Servicio a exponer (solo Docker Compose) */}
+          {formData.tipoAplicacion === TipoAplicacion.DOCKER_COMPOSE && (
+            <div className="space-y-2">
+              <Label htmlFor="composeServiceName">
+                Servicio a exponer con el dominio *
+              </Label>
+              <Input
+                id="composeServiceName"
+                name="composeServiceName"
+                placeholder="frontend"
+                value={formData.composeServiceName}
+                onChange={handleChange}
+                required
+                disabled={isLoading}
+              />
+              <p className="text-xs text-muted-foreground">
+                Nombre del servicio en tu <code>docker-compose.yml</code> que recibirá el tráfico público (ej: <code>frontend</code>, <code>web</code>, <code>app</code>).
+              </p>
+            </div>
+          )}
+
           {/* Puerto (solo si no es static) */}
           {showPortField && (
             <div className="space-y-2">
               <Label htmlFor="puerto">
                 {formData.tipoAplicacion === TipoAplicacion.DOCKER_COMPOSE
-                  ? 'Puerto expuesto del servicio principal'
+                  ? 'Puerto interno del servicio expuesto'
                   : 'Puerto'}
               </Label>
               <Input
@@ -326,7 +353,7 @@ export function CreateAppForm({ onSuccess }: CreateAppFormProps) {
               />
               <p className="text-xs text-muted-foreground">
                 {formData.tipoAplicacion === TipoAplicacion.DOCKER_COMPOSE
-                  ? 'Puerto del contenedor principal donde escucha el tráfico. El proxy lo enrutará automáticamente (ej: si escucha en 3000, el dominio apuntará ahí).'
+                  ? 'Puerto interno del contenedor donde escucha el servicio (se detecta automáticamente del compose si tiene ports definidos).'
                   : 'Puerto donde tu aplicación escucha (default: 3000)'}
               </p>
             </div>

@@ -22,6 +22,7 @@ export const createAplicacion = async (
       variablesEntorno,
       tipoAplicacion,
       puerto,
+      composeServiceName,
       installCommand,
       buildCommand,
       startCommand,
@@ -59,9 +60,22 @@ export const createAplicacion = async (
           error: composeValidation.error,
         });
       }
-      composeMainService = composeValidation.serviceNames?.[0];
+      const validServices = composeValidation.serviceNames ?? [];
+
+      // Usar el servicio que eligió el usuario; si no lo especificó o no existe en el compose, tomar el primero
+      const requestedService = composeServiceName?.trim();
+      if (requestedService && !validServices.includes(requestedService)) {
+        return res.status(400).json({
+          success: false,
+          error: `Service "${requestedService}" not found in docker-compose.yml. Available services: ${validServices.join(', ')}.`,
+        });
+      }
+      composeMainService = requestedService || validServices[0];
       composeFilename = composeValidation.composeFilename;
-      composeInternalPort = composeValidation.mainServicePort;
+      // Puerto interno: leer del compose según el servicio elegido, con fallback al del usuario
+      if (composeMainService && composeValidation.servicePorts) {
+        composeInternalPort = composeValidation.servicePorts[composeMainService] ?? undefined;
+      }
     }
 
     // Obtener el usuario para generar el dominio

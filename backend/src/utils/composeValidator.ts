@@ -100,7 +100,7 @@ export interface ComposeValidationResult {
   dbServicesFound?: string[];
   serviceNames?: string[]; // servicios válidos (no BD)
   composeFilename?: string; // nombre del archivo encontrado (ej: 'docker-compose.yml')
-  mainServicePort?: number; // puerto interno del contenedor del servicio principal
+  servicePorts?: Record<string, number | null>; // puerto interno por servicio
 }
 
 /**
@@ -186,14 +186,10 @@ export async function validateComposeHasNoDB(
     };
   }
 
-  // Elegir el puerto del servicio principal (el primero con puertos expuestos, o el primero de la lista)
-  const mainService = validServices.find(s => servicePorts[s] !== null) ?? validServices[0];
-  const mainServicePort = mainService ? (servicePorts[mainService] ?? undefined) : undefined;
-
   return {
     valid: true,
     serviceNames: validServices,
     composeFilename,
-    mainServicePort: mainServicePort ?? undefined,
+    servicePorts,
   };
 }

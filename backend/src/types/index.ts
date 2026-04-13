@@ -41,6 +41,9 @@ export interface CreateAplicacionDTO {
   tipoAplicacion?: 'NIXPACKS' | 'STATIC' | 'DOCKERFILE' | 'DOCKER_COMPOSE';
   puerto?: number;
 
+  // Para Docker Compose: servicio que recibe tráfico público
+  composeServiceName?: string;
+
   // Comandos personalizados (opcionales)
   installCommand?: string;
   buildCommand?: string;

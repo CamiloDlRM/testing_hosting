@@ -93,6 +93,9 @@ export interface CreateAplicacionData {
   tipoAplicacion?: TipoAplicacion;
   puerto?: number;
 
+  // Para Docker Compose: nombre del servicio que se expone con el dominio
+  composeServiceName?: string;
+
   // Comandos personalizados
   installCommand?: string;
   buildCommand?: string;
