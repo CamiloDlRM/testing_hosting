@@ -64,6 +64,11 @@ export function AppDashboard({ app, onSilentUpdate, onDelete }: AppDashboardProp
   const [savingEnvVars, setSavingEnvVars] = useState(false);
   const [needsRedeploy, setNeedsRedeploy] = useState(false);
 
+  // Volume editing state
+  const [editingVolumes, setEditingVolumes] = useState(false);
+  const [volumePairs, setVolumePairs] = useState<{ source: string; target: string }[]>([]);
+  const [savingVolumes, setSavingVolumes] = useState(false);
+
   const hasActiveDeployment = app.deployments?.some((d) => d.estado === 'IN_PROGRESS') ?? false;
   const isDeploying =
     app.estado === EstadoApp.PENDING ||
@@ -248,6 +253,43 @@ export function AppDashboard({ app, onSilentUpdate, onDelete }: AppDashboardProp
 
   const removeEnvPair = (index: number) =>
     setEnvVarPairs((prev) => prev.filter((_, i) => i !== index));
+
+  const startEditVolumes = () => {
+    const pairs = Array.isArray(app.volumes) && app.volumes.length > 0
+      ? app.volumes.map((v) => ({ source: v.source, target: v.target }))
+      : [{ source: '', target: '' }];
+    setVolumePairs(pairs);
+    setEditingVolumes(true);
+  };
+
+  const cancelEditVolumes = () => {
+    setEditingVolumes(false);
+    setVolumePairs([]);
+  };
+
+  const saveVolumes = async () => {
+    setSavingVolumes(true);
+    setError('');
+    try {
+      const validVolumes = volumePairs.filter((v) => v.source.trim() && v.target.trim());
+      await aplicacionService.updateAplicacion(app.id, { volumes: validVolumes });
+      setEditingVolumes(false);
+      setNeedsRedeploy(true);
+      onSilentUpdate();
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Error al guardar los volúmenes');
+    } finally {
+      setSavingVolumes(false);
+    }
+  };
+
+  const updateVolumePair = (index: number, field: 'source' | 'target', val: string) =>
+    setVolumePairs((prev) => prev.map((p, i) => (i === index ? { ...p, [field]: val } : p)));
+
+  const addVolumePair = () => setVolumePairs((prev) => [...prev, { source: '', target: '' }]);
+
+  const removeVolumePair = (index: number) =>
+    setVolumePairs((prev) => prev.filter((_, i) => i !== index));
 
   const actionsDisabled = isLoading || pollAfterAction;
   const canStart = app.estado === EstadoApp.STOPPED && !needsRedeploy && !pollAfterAction;
@@ -651,6 +693,82 @@ export function AppDashboard({ app, onSilentUpdate, onDelete }: AppDashboardProp
               <p className="text-sm text-muted-foreground">
                 No hay variables de entorno configuradas.
               </p>
+            )}
+          </div>
+
+          {/* Volúmenes */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="font-semibold">Volúmenes</h4>
+              {!editingVolumes && (
+                <Button onClick={startEditVolumes} variant="outline" size="sm">
+                  Editar
+                </Button>
+              )}
+            </div>
+            {editingVolumes ? (
+              <div className="space-y-2">
+                {volumePairs.length > 0 && (
+                  <div className="grid grid-cols-2 gap-1 mb-1 pr-10">
+                    <span className="text-xs text-muted-foreground px-1">Source</span>
+                    <span className="text-xs text-muted-foreground px-1">Target</span>
+                  </div>
+                )}
+                {volumePairs.map((vol, index) => (
+                  <div key={index} className="flex gap-2">
+                    <Input
+                      placeholder="mi_volumen"
+                      value={vol.source}
+                      onChange={(e) => updateVolumePair(index, 'source', e.target.value)}
+                      className="font-mono text-sm flex-1"
+                    />
+                    <Input
+                      placeholder="/app/data"
+                      value={vol.target}
+                      onChange={(e) => updateVolumePair(index, 'target', e.target.value)}
+                      className="font-mono text-sm flex-1"
+                    />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removeVolumePair(index)}
+                      className="shrink-0"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+                <Button variant="outline" size="sm" onClick={addVolumePair}>
+                  <Plus className="h-3.5 w-3.5 mr-1.5" />
+                  Agregar volumen
+                </Button>
+                <div className="flex gap-2 pt-1">
+                  <Button size="sm" onClick={saveVolumes} disabled={savingVolumes}>
+                    <Check className="h-3.5 w-3.5 mr-1.5" />
+                    {savingVolumes ? 'Guardando...' : 'Guardar'}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={cancelEditVolumes}
+                    disabled={savingVolumes}
+                  >
+                    Cancelar
+                  </Button>
+                </div>
+              </div>
+            ) : Array.isArray(app.volumes) && app.volumes.length > 0 ? (
+              <div className="bg-muted p-4 rounded-lg space-y-1">
+                {app.volumes.map((vol, i) => (
+                  <div key={i} className="text-sm font-mono">
+                    <span className="font-semibold">{vol.source}</span>
+                    {' → '}
+                    {vol.target}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">No hay volúmenes configurados.</p>
             )}
           </div>
 

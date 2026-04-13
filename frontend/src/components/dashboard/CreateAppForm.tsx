@@ -81,6 +81,7 @@ export function CreateAppForm({ onSuccess }: CreateAppFormProps) {
   });
 
   const [envVars, setEnvVars] = useState<Array<{ key: string; value: string }>>([]);
+  const [volumes, setVolumes] = useState<Array<{ source: string; target: string }>>([]);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -121,6 +122,16 @@ export function CreateAppForm({ onSuccess }: CreateAppFormProps) {
     const updated = [...envVars];
     updated[index][field] = value;
     setEnvVars(updated);
+  };
+
+  const addVolume = () => setVolumes([...volumes, { source: '', target: '' }]);
+
+  const removeVolume = (index: number) => setVolumes(volumes.filter((_, i) => i !== index));
+
+  const updateVolume = (index: number, field: 'source' | 'target', value: string) => {
+    const updated = [...volumes];
+    updated[index][field] = value;
+    setVolumes(updated);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -168,6 +179,12 @@ export function CreateAppForm({ onSuccess }: CreateAppFormProps) {
       // Variables de entorno
       if (Object.keys(variablesEntorno).length > 0) {
         payload.variablesEntorno = variablesEntorno;
+      }
+
+      // Volúmenes (solo los que tienen source y target completos)
+      const validVolumes = volumes.filter((v) => v.source.trim() && v.target.trim());
+      if (validVolumes.length > 0) {
+        payload.volumes = validVolumes;
       }
 
       const response = await aplicacionService.createAplicacion(payload);
@@ -488,6 +505,54 @@ export function CreateAppForm({ onSuccess }: CreateAppFormProps) {
                   variant="destructive"
                   size="icon"
                   onClick={() => removeEnvVar(index)}
+                  disabled={isLoading}
+                >
+                  ×
+                </Button>
+              </div>
+            ))}
+          </div>
+
+          {/* Volúmenes */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <Label>Volúmenes (Opcional)</Label>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={addVolume}
+                disabled={isLoading}
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                Agregar
+              </Button>
+            </div>
+            {volumes.length > 0 && (
+              <div className="grid grid-cols-2 gap-1 mb-1">
+                <span className="text-xs text-muted-foreground px-1">Source (volumen o path host)</span>
+                <span className="text-xs text-muted-foreground px-1">Target (path en contenedor)</span>
+              </div>
+            )}
+            {volumes.map((vol, index) => (
+              <div key={index} className="flex gap-2">
+                <Input
+                  placeholder="mi_volumen"
+                  value={vol.source}
+                  onChange={(e) => updateVolume(index, 'source', e.target.value)}
+                  disabled={isLoading}
+                />
+                <Input
+                  placeholder="/app/data"
+                  value={vol.target}
+                  onChange={(e) => updateVolume(index, 'target', e.target.value)}
+                  disabled={isLoading}
+                />
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="icon"
+                  onClick={() => removeVolume(index)}
                   disabled={isLoading}
                 >
                   ×

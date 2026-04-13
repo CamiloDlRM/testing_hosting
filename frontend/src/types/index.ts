@@ -5,6 +5,11 @@ export interface User {
   createdAt: string;
 }
 
+export interface VolumeMount {
+  source: string;
+  target: string;
+}
+
 export interface Aplicacion {
   id: string;
   userId: string;
@@ -15,6 +20,7 @@ export interface Aplicacion {
   ramaBranch: string;
   estado: EstadoApp;
   variablesEntorno: Record<string, string> | null;
+  volumes: VolumeMount[] | null;
 
   // Configuración de deployment
   tipoAplicacion: TipoAplicacion;
@@ -93,6 +99,9 @@ export interface CreateAplicacionData {
   startCommand?: string;
   baseDirectory?: string;
   publishDirectory?: string;
+
+  // Volúmenes
+  volumes?: VolumeMount[];
 }
 
 export interface UpdateAplicacionData {
@@ -106,6 +115,9 @@ export interface UpdateAplicacionData {
   startCommand?: string;
   baseDirectory?: string;
   publishDirectory?: string;
+
+  // Volúmenes
+  volumes?: VolumeMount[];
 }
 
 export interface ApiResponse<T = any> {

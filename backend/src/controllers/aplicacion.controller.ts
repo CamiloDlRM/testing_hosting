@@ -4,6 +4,7 @@ import prisma from '../utils/prisma';
 import coolifyService from '../services/coolify.service';
 import { EstadoApp } from '@prisma/client';
 import { generateDomain, generateUrl } from '../utils/domain';
+import { validateComposeHasNoDB } from '../utils/composeValidator';
 
 /**
  * Crear una nueva aplicación (solo si el usuario no tiene una)
@@ -28,6 +29,7 @@ export const createAplicacion = async (
       publishDirectory,
       limiteMemoria,
       limiteCpu,
+      volumes,
     } = req.body;
 
     // VERIFICAR: El usuario solo puede tener un MÁXIMO de 2 aplicaciones
@@ -40,6 +42,20 @@ export const createAplicacion = async (
         success: false,
         error: 'You already have 2 applications. Please delete one before creating a new one.',
       });
+    }
+
+    // Si es Docker Compose, validar que el compose del repo no tenga BDs
+    if ((tipoAplicacion || 'NIXPACKS') === 'DOCKER_COMPOSE') {
+      const composeValidation = await validateComposeHasNoDB(
+        repositorioGit,
+        ramaBranch || 'main'
+      );
+      if (!composeValidation.valid) {
+        return res.status(400).json({
+          success: false,
+          error: composeValidation.error,
+        });
+      }
     }
 
     // Obtener el usuario para generar el dominio
@@ -89,6 +105,7 @@ export const createAplicacion = async (
         publishDirectory,
         limiteMemoria: limiteMemoria || '512m',
         limiteCpu: limiteCpu || '0.5',
+        volumes: volumes || [],
       },
     });
 
@@ -113,6 +130,11 @@ export const createAplicacion = async (
       if (startCommand) coolifyConfig.start_command = startCommand;
       if (baseDirectory) coolifyConfig.base_directory = baseDirectory;
       if (publishDirectory) coolifyConfig.publish_directory = publishDirectory;
+
+      // Volúmenes: convertir a formato "source:target"
+      if (volumes && volumes.length > 0) {
+        coolifyConfig.volumes = volumes.map((v: any) => `${v.source}:${v.target}`);
+      }
 
       // Variables de entorno: agregar solo las del usuario
       // NO agregamos COOLIFY_URL ni COOLIFY_FQDN porque Coolify las agrega automáticamente con null
@@ -343,6 +365,7 @@ export const updateAplicacion = async (
       publishDirectory,
       limiteMemoria,
       limiteCpu,
+      volumes,
     } = req.body;
 
     const buildPackMap: Record<string, string> = {
@@ -398,6 +421,7 @@ export const updateAplicacion = async (
       if (publishDirectory !== undefined)  coolifyUpdate.publish_directory = publishDirectory ?? '';
       if (limiteMemoria !== undefined)     coolifyUpdate.limits_memory = limiteMemoria;
       if (limiteCpu !== undefined)         coolifyUpdate.limits_cpus = limiteCpu;
+      if (volumes !== undefined)           coolifyUpdate.volumes = volumes.map((v: any) => `${v.source}:${v.target}`);
 
       if (Object.keys(coolifyUpdate).length > 0) {
         try {
@@ -429,6 +453,7 @@ export const updateAplicacion = async (
         ...(publishDirectory !== undefined && { publishDirectory }),
         ...(limiteMemoria !== undefined && { limiteMemoria }),
         ...(limiteCpu !== undefined && { limiteCpu }),
+        ...(volumes !== undefined && { volumes }),
       },
     });
 

@@ -7,7 +7,11 @@
       "Bash(npx tsc)",
       "WebSearch",
       "WebFetch(domain:coolify.io)",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "Bash(rtk ls:*)",
+      "Bash(npm install:*)",
+      "Bash(rtk prisma:*)",
+      "Bash(rtk read:*)"
     ],
     "deny": [],
     "ask": []

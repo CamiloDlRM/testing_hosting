@@ -26,6 +26,11 @@ export interface LoginDTO {
   password: string;
 }
 
+export interface VolumeMount {
+  source: string; // nombre del volumen o path del host
+  target: string; // path dentro del contenedor
+}
+
 export interface CreateAplicacionDTO {
   nombre: string;
   repositorioGit: string;
@@ -46,6 +51,9 @@ export interface CreateAplicacionDTO {
   // Límites de recursos del contenedor
   limiteMemoria?: string;
   limiteCpu?: string;
+
+  // Volúmenes del contenedor
+  volumes?: VolumeMount[];
 }
 
 export interface UpdateAplicacionDTO {
@@ -63,6 +71,9 @@ export interface UpdateAplicacionDTO {
   // Límites de recursos del contenedor
   limiteMemoria?: string;
   limiteCpu?: string;
+
+  // Volúmenes del contenedor
+  volumes?: VolumeMount[];
 }
 
 // Tipos para Coolify API
@@ -86,6 +97,9 @@ export interface CoolifyAppConfig {
   // Límites de recursos del contenedor (Docker)
   limits_memory?: string;  // Ej: "512m", "1g"
   limits_cpus?: string;    // Ej: "0.5", "1"
+
+  // Volúmenes: array de strings "source:target"
+  volumes?: string[];
 }
 
 export interface CoolifyDeploymentResponse {

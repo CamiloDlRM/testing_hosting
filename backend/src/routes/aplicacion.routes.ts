@@ -52,6 +52,17 @@ const createValidation = [
       return true;
     })
     .withMessage('limiteCpu must be a decimal number between 0.1 and 8, e.g. "0.5", "1", "2"'),
+  body('volumes')
+    .optional()
+    .isArray()
+    .withMessage('volumes must be an array'),
+  body('volumes.*.source')
+    .notEmpty()
+    .withMessage('Each volume must have a non-empty source'),
+  body('volumes.*.target')
+    .notEmpty()
+    .matches(/^\//)
+    .withMessage('Each volume target must be an absolute path (starting with /)'),
 ];
 
 const updateValidation = [
@@ -81,6 +92,17 @@ const updateValidation = [
       return true;
     })
     .withMessage('limiteCpu must be a decimal number between 0.1 and 8, e.g. "0.5", "1", "2"'),
+  body('volumes')
+    .optional()
+    .isArray()
+    .withMessage('volumes must be an array'),
+  body('volumes.*.source')
+    .notEmpty()
+    .withMessage('Each volume must have a non-empty source'),
+  body('volumes.*.target')
+    .notEmpty()
+    .matches(/^\//)
+    .withMessage('Each volume target must be an absolute path (starting with /)'),
 ];
 
 // Rutas
