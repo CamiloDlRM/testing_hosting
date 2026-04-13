@@ -131,7 +131,7 @@ export const createAplicacion = async (
         : `http://${dominio}`;
 
       if (tipoApp === 'DOCKER_COMPOSE' && composeMainService) {
-        coolifyConfig.docker_compose_domains = { [composeMainService]: dominioConPuerto };
+        coolifyConfig.docker_compose_domains = [{ name: composeMainService, domain: dominioConPuerto }];
       } else {
         coolifyConfig.domains = `http://${dominio}`;
       }
