@@ -11,7 +11,9 @@
       "Bash(rtk ls:*)",
       "Bash(npm install:*)",
       "Bash(rtk prisma:*)",
-      "Bash(rtk read:*)"
+      "Bash(rtk read:*)",
+      "Bash(npm show:*)",
+      "Bash(npm audit:*)"
     ],
     "deny": [],
     "ask": []

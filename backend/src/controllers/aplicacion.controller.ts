@@ -105,7 +105,7 @@ export const createAplicacion = async (
         publishDirectory,
         limiteMemoria: limiteMemoria || '512m',
         limiteCpu: limiteCpu || '0.5',
-        volumes: volumes || [],
+        volumes: (volumes || []) as any,
       },
     });
 
@@ -453,7 +453,7 @@ export const updateAplicacion = async (
         ...(publishDirectory !== undefined && { publishDirectory }),
         ...(limiteMemoria !== undefined && { limiteMemoria }),
         ...(limiteCpu !== undefined && { limiteCpu }),
-        ...(volumes !== undefined && { volumes }),
+        ...(volumes !== undefined && { volumes: volumes as any }),
       },
     });
 
