@@ -45,6 +45,7 @@ export const createAplicacion = async (
     }
 
     // Si es Docker Compose, validar que el compose del repo no tenga BDs
+    let composeMainService: string | undefined;
     if ((tipoAplicacion || 'NIXPACKS') === 'DOCKER_COMPOSE') {
       const composeValidation = await validateComposeHasNoDB(
         repositorioGit,
@@ -56,6 +57,7 @@ export const createAplicacion = async (
           error: composeValidation.error,
         });
       }
+      composeMainService = composeValidation.serviceNames?.[0];
     }
 
     // Obtener el usuario para generar el dominio
@@ -119,10 +121,20 @@ export const createAplicacion = async (
         build_pack: buildPack,
         ports_exposes: puerto?.toString() || '3000',
         is_static: tipoApp === 'STATIC',
-        domains: `http://${dominio}`,
         limits_memory: limiteMemoria || '512m',
         limits_cpus: limiteCpu || '0.5',
       };
+
+      // Dominio: compose usa docker_compose_domains por servicio, el resto usa domains
+      const dominioConPuerto = puerto && puerto !== 80
+        ? `http://${dominio}:${puerto}`
+        : `http://${dominio}`;
+
+      if (tipoApp === 'DOCKER_COMPOSE' && composeMainService) {
+        coolifyConfig.docker_compose_domains = { [composeMainService]: dominioConPuerto };
+      } else {
+        coolifyConfig.domains = `http://${dominio}`;
+      }
 
       // Agregar campos opcionales solo si tienen valores
       if (installCommand) coolifyConfig.install_command = installCommand;

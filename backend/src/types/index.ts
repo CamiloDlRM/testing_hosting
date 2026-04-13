@@ -100,6 +100,9 @@ export interface CoolifyAppConfig {
 
   // Volúmenes: array de strings "source:target"
   volumes?: string[];
+
+  // Para Docker Compose: dominios por servicio { "service_name": "http://domain.com:port" }
+  docker_compose_domains?: Record<string, string>;
 }
 
 export interface CoolifyDeploymentResponse {

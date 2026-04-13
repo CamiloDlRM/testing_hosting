@@ -96,6 +96,7 @@ export interface ComposeValidationResult {
   valid: boolean;
   error?: string;
   dbServicesFound?: string[];
+  serviceNames?: string[]; // servicios válidos (no BD)
 }
 
 export async function validateComposeHasNoDB(
@@ -122,6 +123,7 @@ export async function validateComposeHasNoDB(
 
   const services: Record<string, any> = compose?.services ?? {};
   const dbServices: string[] = [];
+  const validServices: string[] = [];
 
   for (const [serviceName, service] of Object.entries(services)) {
     const image: string = (service as any)?.image ?? '';
@@ -135,7 +137,10 @@ export async function validateComposeHasNoDB(
     const dbVolumePath = hasDbVolumePath(service);
     if (dbVolumePath) {
       dbServices.push(`${serviceName} (volume path: ${dbVolumePath})`);
+      continue;
     }
+
+    validServices.push(serviceName);
   }
 
   if (dbServices.length > 0) {
@@ -148,5 +153,5 @@ export async function validateComposeHasNoDB(
     };
   }
 
-  return { valid: true };
+  return { valid: true, serviceNames: validServices };
 }

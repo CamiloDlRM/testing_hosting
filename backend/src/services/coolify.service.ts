@@ -102,12 +102,14 @@ class CoolifyService {
         payload.limits_cpus = config.limits_cpus;
       }
 
-      // Dominios (Coolify espera un string, no array)
-      if (config.domains) {
+      // Dominios
+      if (config.docker_compose_domains) {
+        // Para dockercompose: { "service_name": "http://domain.com:port" }
+        payload.docker_compose_domains = config.docker_compose_domains;
+      } else if (config.domains) {
         if (typeof config.domains === 'string' && config.domains.trim() !== '') {
           payload.domains = config.domains.trim();
         } else if (Array.isArray(config.domains) && config.domains.length > 0) {
-          // Si es array, tomar el primer dominio válido
           const firstDomain = config.domains.find(d => d && d.trim() !== '');
           if (firstDomain) {
             payload.domains = firstDomain.trim();
