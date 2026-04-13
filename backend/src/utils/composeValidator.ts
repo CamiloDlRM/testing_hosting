@@ -100,6 +100,32 @@ export interface ComposeValidationResult {
   dbServicesFound?: string[];
   serviceNames?: string[]; // servicios válidos (no BD)
   composeFilename?: string; // nombre del archivo encontrado (ej: 'docker-compose.yml')
+  mainServicePort?: number; // puerto interno del contenedor del servicio principal
+}
+
+/**
+ * Extrae el puerto interno (container-side) del primer mapeo de puertos de un servicio.
+ * "5174:3000" → 3000 | "3000" → 3000 | { target: 3000 } → 3000
+ */
+function extractMainPort(service: any): number | null {
+  const ports: any[] = service?.ports ?? [];
+  if (ports.length === 0) {
+    // Intentar con expose (solo declara puertos internos)
+    const expose: any[] = service?.expose ?? [];
+    if (expose.length > 0) return Number(expose[0]) || null;
+    return null;
+  }
+  const first = ports[0];
+  if (typeof first === 'string') {
+    // formato "host:container" o solo "container"
+    const parts = first.split(':');
+    return Number(parts[parts.length - 1]) || null;
+  }
+  if (typeof first === 'object') {
+    // formato largo: { target: 3000, published: 5174 }
+    return Number(first.target) || null;
+  }
+  return null;
 }
 
 export async function validateComposeHasNoDB(
@@ -129,6 +155,7 @@ export async function validateComposeHasNoDB(
   const services: Record<string, any> = compose?.services ?? {};
   const dbServices: string[] = [];
   const validServices: string[] = [];
+  const servicePorts: Record<string, number | null> = {};
 
   for (const [serviceName, service] of Object.entries(services)) {
     const image: string = (service as any)?.image ?? '';
@@ -146,6 +173,7 @@ export async function validateComposeHasNoDB(
     }
 
     validServices.push(serviceName);
+    servicePorts[serviceName] = extractMainPort(service);
   }
 
   if (dbServices.length > 0) {
@@ -158,5 +186,14 @@ export async function validateComposeHasNoDB(
     };
   }
 
-  return { valid: true, serviceNames: validServices, composeFilename };
+  // Elegir el puerto del servicio principal (el primero con puertos expuestos, o el primero de la lista)
+  const mainService = validServices.find(s => servicePorts[s] !== null) ?? validServices[0];
+  const mainServicePort = mainService ? (servicePorts[mainService] ?? undefined) : undefined;
+
+  return {
+    valid: true,
+    serviceNames: validServices,
+    composeFilename,
+    mainServicePort: mainServicePort ?? undefined,
+  };
 }

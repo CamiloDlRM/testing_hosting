@@ -47,6 +47,7 @@ export const createAplicacion = async (
     // Si es Docker Compose, validar que el compose del repo no tenga BDs
     let composeMainService: string | undefined;
     let composeFilename: string | undefined;
+    let composeInternalPort: number | undefined;
     if ((tipoAplicacion || 'NIXPACKS') === 'DOCKER_COMPOSE') {
       const composeValidation = await validateComposeHasNoDB(
         repositorioGit,
@@ -60,6 +61,7 @@ export const createAplicacion = async (
       }
       composeMainService = composeValidation.serviceNames?.[0];
       composeFilename = composeValidation.composeFilename;
+      composeInternalPort = composeValidation.mainServicePort;
     }
 
     // Obtener el usuario para generar el dominio
@@ -136,7 +138,14 @@ export const createAplicacion = async (
         // Indicar a Coolify la ubicación exacta del archivo compose encontrado
         coolifyConfig.docker_compose_location = `/${composeFilename ?? 'docker-compose.yaml'}`;
         if (composeMainService) {
-          coolifyConfig.docker_compose_domains = [{ name: composeMainService, domain: dominioConPuerto }];
+          // Usar el puerto interno del contenedor detectado en el compose.
+          // Coolify routea tráfico a ese puerto a través de su proxy (Traefik),
+          // ignorando el puerto del host (ej: "5174:3000" → usamos 3000).
+          const proxyPort = composeInternalPort ?? puerto ?? 3000;
+          const domainForProxy = proxyPort !== 80
+            ? `http://${dominio}:${proxyPort}`
+            : `http://${dominio}`;
+          coolifyConfig.docker_compose_domains = [{ name: composeMainService, domain: domainForProxy }];
         }
       } else {
         coolifyConfig.domains = `http://${dominio}`;
