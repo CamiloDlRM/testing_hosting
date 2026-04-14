@@ -473,14 +473,17 @@ class CoolifyService {
     onClose: () => void,
   ): () => void {
     // COOLIFY_REVERB_HOST puede ser distinto al host de la API (ej: realtime.roblehosting.site)
+    const coolifyBase = (this.api.defaults.baseURL ?? '').replace(/\/api\/v1\/?$/, '');
     const reverbHost = process.env.COOLIFY_REVERB_HOST
-      ?? (this.api.defaults.baseURL ?? '').replace(/\/api\/v1\/?$/, '').replace(/^https?:\/\//, '');
+      ?? coolifyBase.replace(/^https?:\/\//, '');
     const appKey = process.env.COOLIFY_REVERB_APP_KEY ?? 'coolify';
     const wsUrl = `wss://${reverbHost}/app/${appKey}?protocol=7&client=js&version=8.3.0&flash=false`;
 
     console.log(`🔌 Conectando WS Reverb: ${wsUrl} → channel deployment.${deploymentUuid}`);
 
-    const ws = new WebSocket(wsUrl);
+    const ws = new WebSocket(wsUrl, {
+      headers: { Origin: coolifyBase },
+    });
     let closed = false;
 
     const close = () => {
