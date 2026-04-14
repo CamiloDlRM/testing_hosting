@@ -4,8 +4,7 @@ import { Aplicacion, CreateAplicacionData, UpdateAplicacionData, ApiResponse } f
 export type LogStreamEvent =
   | { type: 'log'; content: string }
   | { type: 'done'; status: string }
-  | { type: 'error'; content: string }
-  | { type: 'coolify_link'; content: string; url: string };
+  | { type: 'error'; content: string };
 
 export const aplicacionService = {
   // Obtener todas las aplicaciones del usuario

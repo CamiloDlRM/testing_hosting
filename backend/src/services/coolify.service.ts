@@ -1,4 +1,5 @@
 import axios, { AxiosInstance } from 'axios';
+import WebSocket from 'ws';
 import {
   CoolifyAppConfig,
   CoolifyAppResponse,
@@ -438,6 +439,105 @@ class CoolifyService {
       console.error('Error fetching deployment status:', error.response?.data || error.message);
       throw new Error(`Failed to fetch deployment status: ${error.response?.data?.message || error.message}`);
     }
+  }
+
+  /**
+   * Conecta al WebSocket de Reverb de Coolify (protocolo Pusher) y se suscribe
+   * al channel `deployment.{deploymentUuid}` para recibir logs de build en tiempo real.
+   *
+   * Devuelve una función para cerrar la conexión manualmente.
+   *
+   * Callbacks:
+   *   onLog(line)    — cada línea de log recibida
+   *   onConnected()  — cuando la suscripción al channel fue confirmada
+   *   onClose()      — cuando el WS se cierra (por error o porque Coolify terminó)
+   */
+  connectToBuildLogStream(
+    deploymentUuid: string,
+    onLog: (line: string) => void,
+    onConnected: () => void,
+    onClose: () => void,
+  ): () => void {
+    // COOLIFY_REVERB_HOST puede ser distinto al host de la API (ej: realtime.roblehosting.site)
+    const reverbHost = process.env.COOLIFY_REVERB_HOST
+      ?? (this.api.defaults.baseURL ?? '').replace(/\/api\/v1\/?$/, '').replace(/^https?:\/\//, '');
+    const appKey = process.env.COOLIFY_REVERB_APP_KEY ?? 'coolify';
+    const wsUrl = `wss://${reverbHost}/app/${appKey}?protocol=7&client=js&version=8.3.0&flash=false`;
+
+    console.log(`🔌 Conectando WS Reverb: ${wsUrl} → channel deployment.${deploymentUuid}`);
+
+    const ws = new WebSocket(wsUrl);
+    let closed = false;
+
+    const close = () => {
+      if (!closed) {
+        closed = true;
+        ws.close();
+      }
+    };
+
+    ws.on('open', () => {
+      console.log(`🔌 WS abierto para deployment ${deploymentUuid}`);
+    });
+
+    ws.on('message', (raw: Buffer) => {
+      try {
+        const msg = JSON.parse(raw.toString());
+
+        // Mantener la conexión viva
+        if (msg.event === 'pusher:ping') {
+          ws.send(JSON.stringify({ event: 'pusher:pong', data: {} }));
+          return;
+        }
+
+        // Una vez establecida la conexión, suscribirse al channel
+        if (msg.event === 'pusher:connection_established') {
+          ws.send(JSON.stringify({
+            event: 'pusher:subscribe',
+            data: { channel: `deployment.${deploymentUuid}` },
+          }));
+          return;
+        }
+
+        // Suscripción confirmada
+        if (msg.event === 'pusher-internal:subscription_succeeded') {
+          console.log(`✅ Suscrito al channel deployment.${deploymentUuid}`);
+          onConnected();
+          return;
+        }
+
+        // Log de build — Coolify emite este evento con el output de cada paso
+        if (
+          msg.event === 'App\\Events\\DeploymentOutput' ||
+          msg.event === 'DeploymentOutput'
+        ) {
+          const data = typeof msg.data === 'string' ? JSON.parse(msg.data) : msg.data;
+          const line: string = data?.output ?? data?.log ?? data?.message ?? '';
+          if (line) onLog(line);
+          return;
+        }
+      } catch {
+        // Ignorar mensajes mal formados
+      }
+    });
+
+    ws.on('close', () => {
+      if (!closed) {
+        closed = true;
+        console.log(`🔌 WS cerrado para deployment ${deploymentUuid}`);
+        onClose();
+      }
+    });
+
+    ws.on('error', (err: Error) => {
+      console.error(`❌ WS error deployment ${deploymentUuid}:`, err.message);
+      if (!closed) {
+        closed = true;
+        onClose();
+      }
+    });
+
+    return close;
   }
 
   /**
