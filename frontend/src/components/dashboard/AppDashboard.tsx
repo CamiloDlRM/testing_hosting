@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Aplicacion, EstadoApp, TipoAplicacion } from '@/types';
 import { aplicacionService } from '@/services/aplicacion.service';
+import { LogsPanel } from './LogsPanel';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -39,7 +40,6 @@ export function AppDashboard({ app, onSilentUpdate, onDelete }: AppDashboardProp
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [showLogs, setShowLogs] = useState(false);
-  const [logs, setLogs] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [copiedDomain, setCopiedDomain] = useState(false);
 
@@ -149,23 +149,8 @@ export function AppDashboard({ app, onSilentUpdate, onDelete }: AppDashboardProp
     }
   };
 
-  const handleViewLogs = async () => {
-    if (showLogs) {
-      setShowLogs(false);
-      return;
-    }
-    setIsLoading(true);
-    try {
-      const response = await aplicacionService.getLogs(app.id, 200);
-      if (response.success && response.data) {
-        setLogs(response.data.logs);
-        setShowLogs(true);
-      }
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Error al obtener logs');
-    } finally {
-      setIsLoading(false);
-    }
+  const handleViewLogs = () => {
+    setShowLogs((prev) => !prev);
   };
 
   // Config editing
@@ -624,13 +609,13 @@ export function AppDashboard({ app, onSilentUpdate, onDelete }: AppDashboardProp
             )}
           </div>
 
-          {/* Logs */}
+          {/* Logs streaming */}
           {showLogs && (
-            <div className="mt-4">
-              <pre className="bg-black text-green-400 p-4 rounded-lg overflow-x-auto text-xs max-h-96 overflow-y-auto">
-                {logs || 'No hay logs disponibles'}
-              </pre>
-            </div>
+            <LogsPanel
+              appId={app.id}
+              appEstado={app.estado}
+              onClose={() => setShowLogs(false)}
+            />
           )}
 
           {/* Variables de Entorno */}

@@ -10,7 +10,9 @@ import {
   deleteAplicacion,
   getAplicacionLogs,
 } from '../controllers/aplicacion.controller';
+import { streamRuntimeLogs, streamBuildLogs } from '../controllers/logs.controller';
 import { authMiddleware } from '../middleware/auth.middleware';
+import { sseAuthMiddleware } from '../middleware/sseAuth.middleware';
 import { validate } from '../middleware/validation.middleware';
 import { criticalOpsLimiter } from '../middleware/rateLimiter.middleware';
 
@@ -116,5 +118,9 @@ router.post('/:appId/deploy', criticalOpsLimiter, deployAplicacion); // POST /ap
 router.post('/:appId/stop', criticalOpsLimiter, stopAplicacion); // POST /aplicaciones/:appId/stop
 router.post('/:appId/restart', criticalOpsLimiter, restartAplicacion); // POST /aplicaciones/:appId/restart
 router.get('/:appId/logs', getAplicacionLogs); // GET /aplicaciones/:appId/logs
+
+// SSE: usan sseAuthMiddleware porque EventSource no soporta headers custom
+router.get('/:appId/logs/runtime/stream', sseAuthMiddleware, streamRuntimeLogs);
+router.get('/:appId/logs/build/stream', sseAuthMiddleware, streamBuildLogs);
 
 export default router;

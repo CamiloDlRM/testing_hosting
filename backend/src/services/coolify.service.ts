@@ -293,7 +293,7 @@ class CoolifyService {
   }
 
   /**
-   * Obtener logs de una aplicación
+   * Obtener logs de runtime de una aplicación
    */
   async getApplicationLogs(appId: string, lines: number = 100): Promise<string> {
     try {
@@ -304,6 +304,41 @@ class CoolifyService {
     } catch (error: any) {
       console.error('Error fetching logs:', error.response?.data || error.message);
       throw new Error(`Failed to fetch logs: ${error.response?.data?.message || error.message}`);
+    }
+  }
+
+  /**
+   * Obtener el deployment más reciente de una aplicación en Coolify
+   */
+  async getLatestDeployment(appId: string): Promise<{ uuid: string; status: string } | null> {
+    try {
+      const response = await this.api.get(`/applications/${appId}/deployments`, {
+        params: { take: 1 },
+      });
+      const deployments = response.data?.data ?? response.data;
+      const first = Array.isArray(deployments) ? deployments[0] : null;
+      if (!first) return null;
+      return { uuid: first.deployment_uuid ?? first.uuid, status: first.status ?? '' };
+    } catch (error: any) {
+      console.error('Error fetching latest deployment:', error.response?.data || error.message);
+      return null;
+    }
+  }
+
+  /**
+   * Obtener los logs de build de un deployment específico de Coolify
+   * Devuelve { logs, status } donde status indica si el deployment terminó
+   */
+  async getDeploymentLogs(deploymentUuid: string): Promise<{ logs: string; status: string }> {
+    try {
+      const response = await this.api.get(`/deployments/${deploymentUuid}`);
+      return {
+        logs: response.data.logs ?? '',
+        status: response.data.status ?? '',
+      };
+    } catch (error: any) {
+      console.error('Error fetching deployment logs:', error.response?.data || error.message);
+      throw new Error(`Failed to fetch deployment logs: ${error.response?.data?.message || error.message}`);
     }
   }
 
