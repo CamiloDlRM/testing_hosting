@@ -18,7 +18,12 @@ import { criticalOpsLimiter } from '../middleware/rateLimiter.middleware';
 
 const router = Router();
 
-// Todas las rutas requieren autenticación
+// SSE: se registran ANTES del authMiddleware global porque EventSource no puede
+// enviar el header Authorization. Usan sseAuthMiddleware que acepta ?token=
+router.get('/:appId/logs/runtime/stream', sseAuthMiddleware, streamRuntimeLogs);
+router.get('/:appId/logs/build/stream', sseAuthMiddleware, streamBuildLogs);
+
+// Todas las demás rutas requieren autenticación via header
 router.use(authMiddleware);
 
 // Validaciones
@@ -119,8 +124,5 @@ router.post('/:appId/stop', criticalOpsLimiter, stopAplicacion); // POST /aplica
 router.post('/:appId/restart', criticalOpsLimiter, restartAplicacion); // POST /aplicaciones/:appId/restart
 router.get('/:appId/logs', getAplicacionLogs); // GET /aplicaciones/:appId/logs
 
-// SSE: usan sseAuthMiddleware porque EventSource no soporta headers custom
-router.get('/:appId/logs/runtime/stream', sseAuthMiddleware, streamRuntimeLogs);
-router.get('/:appId/logs/build/stream', sseAuthMiddleware, streamBuildLogs);
 
 export default router;
