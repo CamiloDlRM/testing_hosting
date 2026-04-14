@@ -392,12 +392,15 @@ class CoolifyService {
           .join('');
       } else if (raw && typeof raw === 'object') {
         // Probar campos comunes
-        logsStr =
-          raw.logs ?? raw.log ?? raw.output ?? raw.data ?? '';
-        if (typeof logsStr !== 'string') {
-          logsStr = Array.isArray(logsStr)
-            ? logsStr.map((e: any) => (typeof e === 'string' ? e : (e?.output ?? JSON.stringify(e)))).join('')
-            : JSON.stringify(logsStr);
+        const candidate: any = raw.logs ?? raw.log ?? raw.output ?? raw.data ?? '';
+        if (typeof candidate === 'string') {
+          logsStr = candidate;
+        } else if (Array.isArray(candidate)) {
+          logsStr = candidate
+            .map((e: any) => (typeof e === 'string' ? e : (e?.output ?? JSON.stringify(e))))
+            .join('');
+        } else {
+          logsStr = JSON.stringify(candidate);
         }
       }
     } catch (err: any) {
