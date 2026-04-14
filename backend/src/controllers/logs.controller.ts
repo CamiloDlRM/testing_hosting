@@ -142,7 +142,9 @@ export const streamRuntimeLogs = async (
  * 3. Si el WS no conecta o no llegan eventos en WS_TIMEOUT_MS, cae en modo
  *    polling puro del endpoint REST (comportamiento anterior).
  */
-const WS_TIMEOUT_MS = 6000; // si en este tiempo no llega ningún log por WS, usar fallback
+const STATUS_POLL_MS = 5000;  // intervalo para el poll de status en modo WS
+const FALLBACK_POLL_MS = 5000; // intervalo para el fallback REST
+const WS_TIMEOUT_MS = 8000;   // tiempo máximo esperando conexión WS antes de usar fallback
 
 export const streamBuildLogs = async (
   req: AuthRequest<{ appId: string }>,
@@ -220,46 +222,44 @@ export const streamBuildLogs = async (
     cleanup();
   };
 
-  // ── 3. Poll de status (independiente del canal de logs) ────────────────────
+  // ── 3. Poll de status ligero — solo 1 llamada API, solo cuando el WS está activo ──
   const startStatusPoll = (uuid: string) => {
     statusPoll = setInterval(async () => {
       if (closed) return;
       try {
-        const { status } = await coolifyService.getDeploymentLogs(uuid);
+        const status = await coolifyService.getDeploymentStatusOnly(uuid);
         if (status && TERMINAL_STATUSES.has(status.toLowerCase())) {
           sendEvent(res, { type: 'done', status });
           finalCleanup();
         }
       } catch { /* ignorar errores puntuales */ }
-    }, BUILD_POLL_MS);
+    }, STATUS_POLL_MS);
   };
 
-  // ── 4. Fallback: polling REST de logs (para versiones sin WS funcional) ────
+  // ── 4. Fallback REST — solo si el WS no conectó ───────────────────────────
+  // getDeploymentLogs hace 2 llamadas (metadata + logs). Aquí solo usamos el
+  // status porque el endpoint /logs siempre devuelve 404 en esta versión de Coolify.
+  // Por eso hacemos solo 1 llamada con getDeploymentStatusOnly cada FALLBACK_POLL_MS.
   const startRestFallback = (uuid: string) => {
     console.warn(`⚠️ WS sin respuesta para ${uuid} — usando fallback REST`);
     sendEvent(res, {
       type: 'log',
-      content: '[Conectando via REST fallback...]\n',
+      content: '[Sin logs disponibles vía WebSocket ni REST en esta versión de Coolify.\nEl deployment está en progreso — esperando resultado...]\n',
     });
 
-    let lastOffset = 0;
     const poll = setInterval(async () => {
       if (closed) { clearInterval(poll); return; }
       try {
-        const { logs, status } = await coolifyService.getDeploymentLogs(uuid);
-        if (logs.length > lastOffset) {
-          sendEvent(res, { type: 'log', content: logs.slice(lastOffset) });
-          lastOffset = logs.length;
-        }
+        const status = await coolifyService.getDeploymentStatusOnly(uuid);
         if (status && TERMINAL_STATUSES.has(status.toLowerCase())) {
           sendEvent(res, { type: 'done', status });
           clearInterval(poll);
           finalCleanup();
         }
       } catch (err: any) {
-        console.error('Build logs REST poll error:', err.message);
+        console.error('Build logs fallback poll error:', err.message);
       }
-    }, BUILD_POLL_MS);
+    }, FALLBACK_POLL_MS);
   };
 
   // ── 5. Conectar al WebSocket de Reverb ────────────────────────────────────
@@ -272,23 +272,22 @@ export const streamBuildLogs = async (
       if (wsTimeoutTimer) { clearTimeout(wsTimeoutTimer); wsTimeoutTimer = null; }
       sendEvent(res, { type: 'log', content: line });
     },
-    // onConnected
+    // onConnected — suscripción confirmada, arrancar poll de status
     () => {
       if (closed) return;
-      // Cancelar el timeout de fallback: la suscripción fue confirmada
       if (wsTimeoutTimer) { clearTimeout(wsTimeoutTimer); wsTimeoutTimer = null; }
       startStatusPoll(deploymentUuid!);
     },
-    // onClose (el WS se cerró solo — Coolify cierra el channel cuando termina el build)
+    // onClose — Coolify cierra el channel cuando el build termina
     () => {
       if (closed) return;
-      // Si el WS se cerró sin haber emitido logs, usar fallback
       if (!wsReceivedLog) {
+        // WS conectó pero nunca llegaron logs → fallback
         startRestFallback(deploymentUuid!);
         return;
       }
-      // Si ya habíamos recibido logs, el build terminó — obtener status final
-      coolifyService.getDeploymentLogs(deploymentUuid!).then(({ status }) => {
+      // Logs recibidos → pedir status final y cerrar
+      coolifyService.getDeploymentStatusOnly(deploymentUuid!).then((status) => {
         if (!closed) {
           sendEvent(res, { type: 'done', status: status || 'finished' });
           finalCleanup();
@@ -297,12 +296,11 @@ export const streamBuildLogs = async (
     },
   );
 
-  // Si en WS_TIMEOUT_MS no llegó ningún log ni confirmación de suscripción, usar fallback
+  // Si en WS_TIMEOUT_MS no llegó ningún evento WS, usar fallback (solo 1 poll activo)
   wsTimeoutTimer = setTimeout(() => {
     if (!closed && !wsReceivedLog) {
       closeWs?.();
       startRestFallback(deploymentUuid!);
-      startStatusPoll(deploymentUuid!);
     }
   }, WS_TIMEOUT_MS);
 };

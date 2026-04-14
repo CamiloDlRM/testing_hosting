@@ -429,6 +429,20 @@ class CoolifyService {
   }
 
   /**
+   * Obtiene solo el status de un deployment (1 sola llamada API, sin intentar los logs).
+   * Útil para polls de status sin saturar el rate limit de Coolify.
+   */
+  async getDeploymentStatusOnly(deploymentUuid: string): Promise<string> {
+    try {
+      const response = await this.api.get(`/deployments/${deploymentUuid}`);
+      return response.data?.status ?? '';
+    } catch (error: any) {
+      console.error('Error fetching deployment status:', error.response?.data || error.message);
+      return '';
+    }
+  }
+
+  /**
    * Obtener el estado de un deployment
    */
   async getDeploymentStatus(appId: string, deploymentId: string): Promise<CoolifyDeploymentResponse> {
