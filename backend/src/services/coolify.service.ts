@@ -368,91 +368,63 @@ class CoolifyService {
    *
    * Intentamos ambos endpoints y nos quedamos con el que devuelva contenido.
    */
-  async getDeploymentLogs(deploymentUuid: string): Promise<{ logs: string; status: string }> {
+  async getDeploymentLogs(deploymentUuid: string): Promise<{ logs: string; status: string; coolifyDashboardUrl?: string }> {
     // 1. Obtener el status y metadata del deployment
     let status = '';
-    let deploymentUrl: string | null = null;
+    let coolifyDashboardUrl: string | undefined;
     let metaData: any = null;
     try {
       const metaResp = await this.api.get(`/deployments/${deploymentUuid}`);
       metaData = metaResp.data;
       status = metaData.status ?? '';
-      deploymentUrl = metaData.deployment_url ?? null;
+
+      // deployment_url es una ruta relativa al frontend de Coolify (p.ej. /project/.../deployment/...)
+      // Construir la URL completa combinando la base de la API (sin /api/v1) con esa ruta
+      const relativeUiPath: string | null = metaData.deployment_url ?? null;
+      if (relativeUiPath) {
+        const apiBase: string = (this.api.defaults.baseURL ?? '').replace(/\/api\/v1\/?$/, '');
+        coolifyDashboardUrl = apiBase + relativeUiPath;
+      }
+
       console.log(
         `📄 Deployment ${deploymentUuid} status: ${status}`,
-        `| deployment_url: ${deploymentUrl}`,
-        `| campos: ${Object.keys(metaData).join(', ')}`
+        `| coolifyDashboardUrl: ${coolifyDashboardUrl ?? 'N/A'}`
       );
     } catch (err: any) {
       console.error('Error fetching deployment metadata:', err.response?.data || err.message);
     }
 
-    // Helper para extraer string de logs de una respuesta de Coolify
-    const extractLogsString = (raw: any): string => {
-      if (typeof raw === 'string') return raw;
-      if (Array.isArray(raw)) {
-        return raw
-          .map((e: any) =>
-            typeof e === 'string' ? e : (e?.output ?? e?.message ?? e?.log ?? JSON.stringify(e))
-          )
-          .join('');
-      }
-      if (raw && typeof raw === 'object') {
-        const candidate: any = raw.logs ?? raw.log ?? raw.output ?? raw.data ?? '';
-        if (typeof candidate === 'string') return candidate;
-        if (Array.isArray(candidate)) {
-          return candidate
-            .map((e: any) => (typeof e === 'string' ? e : (e?.output ?? JSON.stringify(e))))
-            .join('');
-        }
-        return JSON.stringify(candidate);
-      }
-      return '';
-    };
-
-    // 2. Intentar obtener el contenido del log desde el endpoint dedicado
+    // 2. Intentar obtener el contenido del log desde el endpoint REST dedicado
+    //    (solo existe en versiones recientes de Coolify; puede devolver 404)
     let logsStr = '';
-
-    // 2a. Intentar GET /deployments/{uuid}/logs
     try {
       const logsResp = await this.api.get(`/deployments/${deploymentUuid}/logs`);
       const raw = logsResp.data;
-      console.log(`📜 /deployments/${deploymentUuid}/logs tipo: ${typeof raw}`);
-      logsStr = extractLogsString(raw);
-    } catch (err: any) {
-      console.warn(`⚠️ /deployments/${deploymentUuid}/logs falló: ${err.response?.status ?? err.message}`);
-    }
-
-    // 2b. Si no hay logs todavía, intentar con deployment_url
-    if (!logsStr && deploymentUrl) {
-      try {
-        // deployment_url puede ser la UI de Coolify — intentar con /logs añadido
-        const logUrl = deploymentUrl.endsWith('/logs') ? deploymentUrl : `${deploymentUrl}/logs`;
-        console.log(`🔗 Intentando deployment_url/logs: ${logUrl}`);
-        const urlResp = await this.api.get(logUrl);
-        logsStr = extractLogsString(urlResp.data);
-        if (logsStr) console.log(`✅ Logs obtenidos desde deployment_url/logs`);
-      } catch (err: any) {
-        console.warn(`⚠️ deployment_url/logs falló: ${err.response?.status ?? err.message}`);
-        // También intentar la URL base sin /logs
-        try {
-          console.log(`🔗 Intentando deployment_url base: ${deploymentUrl}`);
-          const urlResp = await this.api.get(deploymentUrl!);
-          logsStr = extractLogsString(urlResp.data);
-          if (logsStr) console.log(`✅ Logs obtenidos desde deployment_url base`);
-        } catch (err2: any) {
-          console.warn(`⚠️ deployment_url base falló: ${err2.response?.status ?? err2.message}`);
-        }
+      if (typeof raw === 'string') {
+        logsStr = raw;
+      } else if (Array.isArray(raw)) {
+        logsStr = raw
+          .map((e: any) => typeof e === 'string' ? e : (e?.output ?? e?.message ?? e?.log ?? JSON.stringify(e)))
+          .join('');
+      } else if (raw && typeof raw === 'object') {
+        const candidate: any = raw.logs ?? raw.log ?? raw.output ?? raw.data ?? '';
+        if (typeof candidate === 'string') logsStr = candidate;
+        else if (Array.isArray(candidate))
+          logsStr = candidate.map((e: any) => typeof e === 'string' ? e : (e?.output ?? JSON.stringify(e))).join('');
       }
+    } catch (err: any) {
+      console.warn(`⚠️ /deployments/${deploymentUuid}/logs no disponible (${err.response?.status ?? err.message}) — versión de Coolify sin endpoint REST de logs`);
     }
 
-    // 2c. Como último recurso, revisar si los campos del metadata tienen algo útil
+    // 3. Como último recurso, revisar si el objeto metadata tiene el log inline
     if (!logsStr && metaData) {
       const raw = metaData.logs ?? metaData.log ?? metaData.output ?? metaData.deployment_logs ?? '';
-      if (raw) logsStr = extractLogsString(raw);
+      if (typeof raw === 'string') logsStr = raw;
+      else if (Array.isArray(raw))
+        logsStr = raw.map((e: any) => typeof e === 'string' ? e : (e?.output ?? JSON.stringify(e))).join('');
     }
 
-    return { logs: logsStr, status };
+    return { logs: logsStr, status, coolifyDashboardUrl };
   }
 
   /**

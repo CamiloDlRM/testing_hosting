@@ -186,6 +186,7 @@ export const streamBuildLogs = async (
   let retries = 0;
   let lastOffset = 0;
   let closed = false;
+  let sentCoolifyFallback = false;
 
   const heartbeat = setInterval(() => {
     if (!closed) res.write(': ping\n\n');
@@ -218,7 +219,17 @@ export const streamBuildLogs = async (
     }
 
     try {
-      const { logs, status } = await coolifyService.getDeploymentLogs(deploymentUuid);
+      const { logs, status, coolifyDashboardUrl } = await coolifyService.getDeploymentLogs(deploymentUuid);
+
+      // Si Coolify no expone los logs vía REST, notificar una sola vez con el enlace al dashboard
+      if (!sentCoolifyFallback && !logs && coolifyDashboardUrl) {
+        sentCoolifyFallback = true;
+        sendEvent(res, {
+          type: 'coolify_link',
+          content: 'Los logs de build no están disponibles via API en esta versión de Coolify.',
+          url: coolifyDashboardUrl,
+        });
+      }
 
       if (logs.length > lastOffset) {
         sendEvent(res, { type: 'log', content: logs.slice(lastOffset) });

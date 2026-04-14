@@ -29,6 +29,7 @@ export function LogsPanel({ appId, appEstado, tipoAplicacion, onClose }: LogsPan
 
   const [content, setContent] = useState('');
   const [streamDone, setStreamDone] = useState(false);
+  const [coolifyLink, setCoolifyLink] = useState<{ url: string; message: string } | null>(null);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const closeStreamRef = useRef<(() => void) | null>(null);
@@ -65,6 +66,7 @@ export function LogsPanel({ appId, appEstado, tipoAplicacion, onClose }: LogsPan
     closeStreamRef.current?.();
     setContent('');
     setStreamDone(false);
+    setCoolifyLink(null);
 
     const onEvent = (e: LogStreamEvent) => {
       if (e.type === 'log') {
@@ -73,6 +75,9 @@ export function LogsPanel({ appId, appEstado, tipoAplicacion, onClose }: LogsPan
         setStreamDone(true);
       } else if (e.type === 'error') {
         setContent((prev) => prev + `\n[Error de conexión] ${e.content}\n`);
+      } else if (e.type === 'coolify_link') {
+        setCoolifyLink({ url: e.url, message: e.content });
+        setStreamDone(true);
       }
     };
 
@@ -94,11 +99,13 @@ export function LogsPanel({ appId, appEstado, tipoAplicacion, onClose }: LogsPan
     closeStreamRef.current?.();
     setContent('');
     setStreamDone(false);
+    setCoolifyLink(null);
 
     const onEvent = (e: LogStreamEvent) => {
       if (e.type === 'log') setContent((prev) => prev + e.content);
       else if (e.type === 'done') setStreamDone(true);
       else if (e.type === 'error') setContent((prev) => prev + `\n[Error de conexión] ${e.content}\n`);
+      else if (e.type === 'coolify_link') { setCoolifyLink({ url: e.url, message: e.content }); setStreamDone(true); }
     };
 
     closeStreamRef.current =
@@ -188,6 +195,21 @@ export function LogsPanel({ appId, appEstado, tipoAplicacion, onClose }: LogsPan
           </div>
         )}
       </div>
+
+      {/* Coolify fallback banner (build logs not available via REST) */}
+      {coolifyLink && (
+        <div className="flex items-start gap-3 bg-zinc-800 border-t border-zinc-700 px-4 py-3 text-xs">
+          <span className="text-zinc-400 leading-5">{coolifyLink.message}</span>
+          <a
+            href={coolifyLink.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded bg-zinc-700 text-zinc-200 hover:bg-zinc-600 transition-colors"
+          >
+            Ver en Coolify →
+          </a>
+        </div>
+      )}
 
       {/* Terminal */}
       <pre className="bg-zinc-950 text-zinc-200 font-mono text-xs p-4 max-h-96 overflow-y-auto whitespace-pre-wrap break-words leading-5">
