@@ -119,8 +119,8 @@ export const streamRuntimeLogs = async (
         sendEvent(res, { type: 'log', content: logs.slice(lastOffset) });
         lastOffset = logs.length;
       }
-    } catch (err: any) {
-      console.error('Runtime logs poll error:', err.message);
+    } catch {
+      // Ignorar errores puntuales — el contenedor puede estar reiniciando
     }
   }, RUNTIME_POLL_MS);
 
@@ -226,11 +226,19 @@ export const streamBuildLogs = async (
       }
 
       if (status && TERMINAL_STATUSES.has(status.toLowerCase())) {
-        sendEvent(res, { type: 'done', status });
-        closed = true;
-        clearInterval(heartbeat);
-        clearInterval(poll);
-        res.end();
+        // Esperar un ciclo más para capturar los últimos logs antes de cerrar
+        await new Promise(r => setTimeout(r, BUILD_POLL_MS));
+        if (!closed) {
+          const { logs: finalLogs } = await coolifyService.getDeploymentLogs(deploymentUuid);
+          if (finalLogs.length > lastOffset) {
+            sendEvent(res, { type: 'log', content: finalLogs.slice(lastOffset) });
+          }
+          sendEvent(res, { type: 'done', status });
+          closed = true;
+          clearInterval(heartbeat);
+          clearInterval(poll);
+          res.end();
+        }
       }
     } catch (err: any) {
       console.error('Build logs poll error:', err.message);
