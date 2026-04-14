@@ -14,8 +14,7 @@ function setSseHeaders(res: Response) {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
-  // Evita que nginx bufferice la respuesta
-  res.setHeader('X-Accel-Buffering', 'no');
+  res.setHeader('X-Accel-Buffering', 'no'); // Evita buffering en nginx
   res.flushHeaders();
 }
 
@@ -25,8 +24,7 @@ function sendEvent(res: Response, data: object) {
 
 /**
  * GET /aplicacion/:appId/logs/runtime/stream
- * Stream de logs de runtime (contenedor corriendo).
- * Pollea Coolify cada RUNTIME_POLL_MS y envía solo las líneas nuevas.
+ * Stream de logs de runtime — agrega todos los contenedores del app (o compose).
  */
 export const streamRuntimeLogs = async (
   req: AuthRequest<{ appId: string }>,
@@ -37,7 +35,7 @@ export const streamRuntimeLogs = async (
 
   const app = await prisma.aplicacion.findFirst({
     where: { id: appId, userId },
-    select: { coolifyAppId: true },
+    select: { coolifyAppId: true, tipoAplicacion: true },
   });
 
   if (!app?.coolifyAppId) {
@@ -57,14 +55,16 @@ export const streamRuntimeLogs = async (
   const poll = setInterval(async () => {
     if (closed) return;
     try {
+      // lines=500 trae suficiente contexto; Coolify agrega todos los contenedores del compose
       const logs = await coolifyService.getApplicationLogs(app.coolifyAppId!, 500);
       if (logs.length > lastOffset) {
         const newContent = logs.slice(lastOffset);
         lastOffset = logs.length;
         sendEvent(res, { type: 'log', content: newContent });
       }
-    } catch {
-      // Si falla un poll no cortamos el stream, lo intentamos de nuevo
+    } catch (err: any) {
+      // No cortamos el stream — simplemente no enviamos nada este ciclo
+      console.error('Runtime logs poll error:', err.message);
     }
   }, RUNTIME_POLL_MS);
 
@@ -77,8 +77,10 @@ export const streamRuntimeLogs = async (
 
 /**
  * GET /aplicacion/:appId/logs/build/stream
- * Stream de logs de build del deployment más reciente.
- * Pollea Coolify cada BUILD_POLL_MS y cierra el stream cuando el deployment termina.
+ * Stream de logs del deployment más reciente.
+ * Reintenta obtener el deployment hasta MAX_DEPLOYMENT_RETRIES veces (útil si el
+ * deploy acaba de iniciarse y Coolify aún no lo registró).
+ * Se cierra automáticamente cuando el deployment termina.
  */
 export const streamBuildLogs = async (
   req: AuthRequest<{ appId: string }>,
@@ -99,15 +101,24 @@ export const streamBuildLogs = async (
 
   setSseHeaders(res);
 
-  // Obtener el deployment más reciente de Coolify
-  const latest = await coolifyService.getLatestDeployment(app.coolifyAppId);
-  if (!latest) {
-    sendEvent(res, { type: 'error', content: 'No deployment found for this application.' });
-    res.end();
-    return;
-  }
+  // Reintentar hasta 10 veces con 2s de espera entre intentos (~20s total)
+  // antes de rendirse buscando el deployment.
+  const MAX_RETRIES = 10;
+  let deploymentUuid: string | null = null;
+  let retries = 0;
 
-  const deploymentUuid = latest.uuid;
+  const tryFindDeployment = async (): Promise<boolean> => {
+    const latest = await coolifyService.getLatestDeployment(app.coolifyAppId!);
+    if (latest?.uuid) {
+      deploymentUuid = latest.uuid;
+      return true;
+    }
+    return false;
+  };
+
+  // Primer intento inmediato
+  await tryFindDeployment();
+
   let lastOffset = 0;
   let closed = false;
 
@@ -117,6 +128,27 @@ export const streamBuildLogs = async (
 
   const poll = setInterval(async () => {
     if (closed) return;
+
+    // Si aún no tenemos UUID, reintentar
+    if (!deploymentUuid) {
+      retries++;
+      if (retries > MAX_RETRIES) {
+        sendEvent(res, {
+          type: 'log',
+          content: '[Error] No se encontró ningún deployment en Coolify. Verifica que el deploy se haya iniciado correctamente.\n',
+        });
+        sendEvent(res, { type: 'done', status: 'error' });
+        closed = true;
+        clearInterval(heartbeat);
+        clearInterval(poll);
+        res.end();
+        return;
+      }
+      sendEvent(res, { type: 'log', content: `[Buscando deployment... intento ${retries}/${MAX_RETRIES}]\n` });
+      await tryFindDeployment();
+      return;
+    }
+
     try {
       const { logs, status } = await coolifyService.getDeploymentLogs(deploymentUuid);
 
@@ -126,15 +158,16 @@ export const streamBuildLogs = async (
         sendEvent(res, { type: 'log', content: newContent });
       }
 
-      if (TERMINAL_STATUSES.has(status.toLowerCase())) {
+      if (status && TERMINAL_STATUSES.has(status.toLowerCase())) {
         sendEvent(res, { type: 'done', status });
         closed = true;
         clearInterval(heartbeat);
         clearInterval(poll);
         res.end();
       }
-    } catch {
-      // Silenciamos errores de poll individuales
+    } catch (err: any) {
+      console.error('Build logs poll error:', err.message);
+      // No cortamos el stream por un fallo puntual
     }
   }, BUILD_POLL_MS);
 

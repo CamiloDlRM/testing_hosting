@@ -315,10 +315,18 @@ class CoolifyService {
       const response = await this.api.get(`/applications/${appId}/deployments`, {
         params: { take: 1 },
       });
-      const deployments = response.data?.data ?? response.data;
-      const first = Array.isArray(deployments) ? deployments[0] : null;
+      // Coolify puede devolver { data: [...] } o directamente [...]
+      const raw = response.data;
+      const list: any[] = Array.isArray(raw) ? raw : Array.isArray(raw?.data) ? raw.data : [];
+      console.log(`📋 Deployments para app ${appId}:`, JSON.stringify(list[0] ?? null));
+      const first = list[0] ?? null;
       if (!first) return null;
-      return { uuid: first.deployment_uuid ?? first.uuid, status: first.status ?? '' };
+      const uuid = first.deployment_uuid ?? first.uuid ?? first.id ?? null;
+      if (!uuid) {
+        console.warn('⚠️ Deployment encontrado pero sin UUID:', first);
+        return null;
+      }
+      return { uuid, status: first.status ?? '' };
     } catch (error: any) {
       console.error('Error fetching latest deployment:', error.response?.data || error.message);
       return null;
@@ -326,16 +334,30 @@ class CoolifyService {
   }
 
   /**
-   * Obtener los logs de build de un deployment específico de Coolify
-   * Devuelve { logs, status } donde status indica si el deployment terminó
+   * Obtener los logs de build de un deployment específico de Coolify.
+   * Devuelve { logs, status } donde status indica si el deployment terminó.
    */
   async getDeploymentLogs(deploymentUuid: string): Promise<{ logs: string; status: string }> {
     try {
       const response = await this.api.get(`/deployments/${deploymentUuid}`);
-      return {
-        logs: response.data.logs ?? '',
-        status: response.data.status ?? '',
-      };
+      const data = response.data;
+      console.log(`📄 Deployment ${deploymentUuid} status: ${data.status}, logs length: ${String(data.logs ?? '').length}`);
+
+      // `logs` puede ser string plano, array de strings, o array de objetos { output, type }
+      let logsStr: string;
+      if (typeof data.logs === 'string') {
+        logsStr = data.logs;
+      } else if (Array.isArray(data.logs)) {
+        logsStr = data.logs
+          .map((entry: any) =>
+            typeof entry === 'string' ? entry : (entry?.output ?? entry?.message ?? JSON.stringify(entry))
+          )
+          .join('\n');
+      } else {
+        logsStr = '';
+      }
+
+      return { logs: logsStr, status: data.status ?? '' };
     } catch (error: any) {
       console.error('Error fetching deployment logs:', error.response?.data || error.message);
       throw new Error(`Failed to fetch deployment logs: ${error.response?.data?.message || error.message}`);

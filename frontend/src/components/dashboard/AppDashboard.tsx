@@ -103,6 +103,15 @@ export function AppDashboard({ app, onSilentUpdate, onDelete }: AppDashboardProp
     return () => clearInterval(interval);
   }, [isDeploying, pollAfterAction]);
 
+  // Auto-abrir panel de logs cuando empieza un deploy
+  const prevIsDeployingRef = useRef(false);
+  useEffect(() => {
+    if (isDeploying && !prevIsDeployingRef.current) {
+      setShowLogs(true);
+    }
+    prevIsDeployingRef.current = isDeploying;
+  }, [isDeploying]);
+
   const copyDomainToClipboard = () => {
     if (app.dominio) {
       navigator.clipboard.writeText(`https://${app.dominio}`);
@@ -281,6 +290,8 @@ export function AppDashboard({ app, onSilentUpdate, onDelete }: AppDashboardProp
   const canStop = app.estado === EstadoApp.RUNNING && !needsRedeploy && !pollAfterAction;
   const canRestart = app.estado === EstadoApp.RUNNING && !needsRedeploy && !pollAfterAction;
   const canDeploy = [EstadoApp.RUNNING, EstadoApp.STOPPED, EstadoApp.FAILED].includes(app.estado) && !pollAfterAction;
+  // Los logs siempre están disponibles (salvo si hay redeploy pendiente por cambio de config).
+  // Nunca se bloquean por pollAfterAction: el deploy en curso es exactamente cuando más se necesitan.
   const canViewLogs = !needsRedeploy;
 
   return (
@@ -602,9 +613,9 @@ export function AppDashboard({ app, onSilentUpdate, onDelete }: AppDashboardProp
               </Button>
             )}
             {canViewLogs && (
-              <Button onClick={handleViewLogs} disabled={actionsDisabled} variant="outline">
+              <Button onClick={handleViewLogs} disabled={isLoading} variant="outline">
                 <FileText className="h-4 w-4 mr-2" />
-                {showLogs ? 'Ocultar Logs' : 'Ver Logs'}
+                {showLogs ? 'Ocultar Logs' : isDeploying ? 'Ver Logs de Build' : 'Ver Logs'}
               </Button>
             )}
           </div>
@@ -614,6 +625,7 @@ export function AppDashboard({ app, onSilentUpdate, onDelete }: AppDashboardProp
             <LogsPanel
               appId={app.id}
               appEstado={app.estado}
+              tipoAplicacion={app.tipoAplicacion}
               onClose={() => setShowLogs(false)}
             />
           )}
