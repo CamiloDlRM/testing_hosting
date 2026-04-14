@@ -483,6 +483,9 @@ class CoolifyService {
 
     const ws = new WebSocket(wsUrl, {
       headers: { Origin: coolifyBase },
+      // Coolify usa un certificado que el CA bundle de Node.js puede no reconocer.
+      // Es seguro desactivarlo aquí porque estamos conectando a nuestro propio servidor.
+      rejectUnauthorized: false,
     });
     let closed = false;
 
