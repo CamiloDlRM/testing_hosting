@@ -108,6 +108,8 @@ export interface CoolifyAppConfig {
   docker_compose_domains?: Array<{ name: string; domain: string }>;
   // Ruta del archivo compose dentro del repo (ej: "/docker-compose.yml")
   docker_compose_location?: string;
+  // Contenido raw del compose (anula el archivo del repo si se especifica)
+  docker_compose_raw?: string;
 }
 
 export interface CoolifyDeploymentResponse {

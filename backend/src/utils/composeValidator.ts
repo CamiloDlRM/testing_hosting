@@ -101,6 +101,51 @@ export interface ComposeValidationResult {
   serviceNames?: string[]; // servicios válidos (no BD)
   composeFilename?: string; // nombre del archivo encontrado (ej: 'docker-compose.yml')
   servicePorts?: Record<string, number | null>; // puerto interno por servicio
+  sanitizedComposeYaml?: string; // compose sin bindings host:port (para pasar a Coolify como docker_compose_raw)
+}
+
+/**
+ * Convierte todos los `ports` de cada servicio en `expose` (solo puerto interno).
+ * Esto evita que Docker bindee puertos al host del servidor, dejando que el
+ * proxy de Coolify (Traefik) sea el único punto de entrada público.
+ *
+ * "5174:3000" → expose: ["3000"]
+ * "3000"      → expose: ["3000"]
+ * { published: 5174, target: 3000 } → expose: ["3000"]
+ */
+function sanitizeComposePorts(compose: any): any {
+  const services: Record<string, any> = compose?.services ?? {};
+  const sanitizedServices: Record<string, any> = {};
+
+  for (const [name, service] of Object.entries(services)) {
+    const svc: any = { ...(service as any) };
+    const ports: any[] = svc.ports ?? [];
+
+    if (ports.length > 0) {
+      // Extraer solo el lado contenedor de cada mapping
+      const internalPorts = ports.map((p: any) => {
+        if (typeof p === 'string') {
+          const parts = p.split(':');
+          return String(parts[parts.length - 1]);
+        }
+        if (typeof p === 'object' && p.target) {
+          return String(p.target);
+        }
+        return String(p);
+      });
+
+      // Fusionar con cualquier expose existente, sin duplicados
+      const existing: string[] = (svc.expose ?? []).map(String);
+      const merged = [...new Set([...existing, ...internalPorts])];
+
+      delete svc.ports;
+      svc.expose = merged;
+    }
+
+    sanitizedServices[name] = svc;
+  }
+
+  return { ...compose, services: sanitizedServices };
 }
 
 /**
@@ -186,10 +231,16 @@ export async function validateComposeHasNoDB(
     };
   }
 
+  // Generar versión sanitizada del compose sin bindings host:port
+  const sanitizedCompose = sanitizeComposePorts(compose);
+  const sanitizedComposeYaml = yaml.dump(sanitizedCompose, { lineWidth: -1 });
+  console.log('🧹 Compose sanitizado (sin ports de host):\n', sanitizedComposeYaml);
+
   return {
     valid: true,
     serviceNames: validServices,
     composeFilename,
     servicePorts,
+    sanitizedComposeYaml,
   };
 }

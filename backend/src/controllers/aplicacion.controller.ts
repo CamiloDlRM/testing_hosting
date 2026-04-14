@@ -49,6 +49,7 @@ export const createAplicacion = async (
     let composeMainService: string | undefined;
     let composeFilename: string | undefined;
     let composeInternalPort: number | undefined;
+    let sanitizedComposeYaml: string | undefined;
     if ((tipoAplicacion || 'NIXPACKS') === 'DOCKER_COMPOSE') {
       const composeValidation = await validateComposeHasNoDB(
         repositorioGit,
@@ -72,6 +73,7 @@ export const createAplicacion = async (
       }
       composeMainService = requestedService || validServices[0];
       composeFilename = composeValidation.composeFilename;
+      sanitizedComposeYaml = composeValidation.sanitizedComposeYaml;
       // Puerto interno: leer del compose según el servicio elegido, con fallback al del usuario
       if (composeMainService && composeValidation.servicePorts) {
         composeInternalPort = composeValidation.servicePorts[composeMainService] ?? undefined;
@@ -149,6 +151,11 @@ export const createAplicacion = async (
         : `http://${dominio}`;
 
       if (tipoApp === 'DOCKER_COMPOSE') {
+        // Pasar el compose sanitizado (sin ports de host) para que Coolify lo use
+        // en lugar del archivo del repo. Evita que Docker bindee puertos al host.
+        if (sanitizedComposeYaml) {
+          coolifyConfig.docker_compose_raw = sanitizedComposeYaml;
+        }
         // Indicar a Coolify la ubicación exacta del archivo compose encontrado
         coolifyConfig.docker_compose_location = `/${composeFilename ?? 'docker-compose.yaml'}`;
         if (composeMainService) {

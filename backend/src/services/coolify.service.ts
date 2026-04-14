@@ -103,6 +103,10 @@ class CoolifyService {
       }
 
       // Dominios
+      if (config.docker_compose_raw) {
+        payload.docker_compose_raw = config.docker_compose_raw;
+      }
+
       if (config.docker_compose_location) {
         payload.docker_compose_location = config.docker_compose_location;
       }
