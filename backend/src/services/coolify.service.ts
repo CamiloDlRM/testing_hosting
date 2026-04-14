@@ -538,10 +538,10 @@ class CoolifyService {
       }
     });
 
-    ws.on('close', () => {
+    ws.on('close', (code: number, reason: Buffer) => {
       if (!closed) {
         closed = true;
-        console.log(`🔌 WS cerrado para deployment ${deploymentUuid}`);
+        console.log(`🔌 WS cerrado para deployment ${deploymentUuid} — code: ${code}, reason: "${reason.toString() || '(vacío)'}"`);
         onClose();
       }
     });
