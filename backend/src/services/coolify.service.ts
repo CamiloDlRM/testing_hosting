@@ -1,5 +1,6 @@
 import axios, { AxiosInstance } from 'axios';
 import WebSocket from 'ws';
+import https from 'https';
 import {
   CoolifyAppConfig,
   CoolifyAppResponse,
@@ -483,9 +484,7 @@ class CoolifyService {
 
     const ws = new WebSocket(wsUrl, {
       headers: { Origin: coolifyBase },
-      // Coolify usa un certificado que el CA bundle de Node.js puede no reconocer.
-      // Es seguro desactivarlo aquí porque estamos conectando a nuestro propio servidor.
-      rejectUnauthorized: false,
+      agent: new https.Agent({ rejectUnauthorized: false }),
     });
     let closed = false;
 
@@ -501,6 +500,7 @@ class CoolifyService {
     });
 
     ws.on('message', (raw: Buffer) => {
+      console.log(`📨 WS mensaje [deployment ${deploymentUuid}]:`, raw.toString().substring(0, 300));
       try {
         const msg = JSON.parse(raw.toString());
 
