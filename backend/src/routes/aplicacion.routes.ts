@@ -10,7 +10,7 @@ import {
   deleteAplicacion,
   getAplicacionLogs,
 } from '../controllers/aplicacion.controller';
-import { streamRuntimeLogs, streamBuildLogs } from '../controllers/logs.controller';
+import { streamRuntimeLogs, streamBuildLogs, getComposeServices } from '../controllers/logs.controller';
 import { authMiddleware } from '../middleware/auth.middleware';
 import { sseAuthMiddleware } from '../middleware/sseAuth.middleware';
 import { validate } from '../middleware/validation.middleware';
@@ -122,7 +122,8 @@ router.delete('/:appId', criticalOpsLimiter, deleteAplicacion); // DELETE /aplic
 router.post('/:appId/deploy', criticalOpsLimiter, deployAplicacion); // POST /aplicaciones/:appId/deploy
 router.post('/:appId/stop', criticalOpsLimiter, stopAplicacion); // POST /aplicaciones/:appId/stop
 router.post('/:appId/restart', criticalOpsLimiter, restartAplicacion); // POST /aplicaciones/:appId/restart
-router.get('/:appId/logs', getAplicacionLogs); // GET /aplicaciones/:appId/logs
+router.get('/:appId/logs', getAplicacionLogs);
+router.get('/:appId/logs/services', getComposeServices);
 
 
 export default router;

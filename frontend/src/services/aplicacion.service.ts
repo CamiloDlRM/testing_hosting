@@ -57,13 +57,20 @@ export const aplicacionService = {
     return response.data;
   },
 
+  /** Obtiene la lista de servicios de una app Docker Compose. */
+  async getComposeServices(appId: string): Promise<string[]> {
+    const response = await api.get<ApiResponse<string[]>>(`/aplicacion/${appId}/logs/services`);
+    return response.data.data ?? [];
+  },
+
   /**
    * Abre un stream SSE de logs de runtime.
-   * Llama a onEvent por cada mensaje recibido.
+   * Para compose, pasar `service` para filtrar por contenedor.
    * Devuelve una función para cerrar el stream.
    */
-  streamRuntimeLogs(appId: string, token: string, onEvent: (e: LogStreamEvent) => void): () => void {
-    const url = `${api.defaults.baseURL}/aplicacion/${appId}/logs/runtime/stream?token=${encodeURIComponent(token)}`;
+  streamRuntimeLogs(appId: string, token: string, onEvent: (e: LogStreamEvent) => void, service?: string): () => void {
+    const serviceParam = service ? `&service=${encodeURIComponent(service)}` : '';
+    const url = `${api.defaults.baseURL}/aplicacion/${appId}/logs/runtime/stream?token=${encodeURIComponent(token)}${serviceParam}`;
     const es = new EventSource(url);
     es.onmessage = (e) => {
       try { onEvent(JSON.parse(e.data)); } catch { /* ignorar mensajes mal formados */ }

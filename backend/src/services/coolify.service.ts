@@ -293,17 +293,30 @@ class CoolifyService {
   }
 
   /**
-   * Obtener logs de runtime de una aplicación
+   * Obtener logs de runtime de una aplicación (o de un contenedor específico de compose)
    */
-  async getApplicationLogs(appId: string, lines: number = 100): Promise<string> {
+  async getApplicationLogs(appId: string, lines: number = 100, containerName?: string): Promise<string> {
     try {
-      const response = await this.api.get(`/applications/${appId}/logs`, {
-        params: { lines },
-      });
+      const params: any = { lines };
+      if (containerName) params.container_name = containerName;
+      const response = await this.api.get(`/applications/${appId}/logs`, { params });
       return response.data.logs || '';
     } catch (error: any) {
       console.error('Error fetching logs:', error.response?.data || error.message);
       throw new Error(`Failed to fetch logs: ${error.response?.data?.message || error.message}`);
+    }
+  }
+
+  /**
+   * Obtener detalles completos de una aplicación (incluye docker_compose_domains, etc.)
+   */
+  async getApplicationDetails(appId: string): Promise<any> {
+    try {
+      const response = await this.api.get(`/applications/${appId}`);
+      return response.data;
+    } catch (error: any) {
+      console.error('Error fetching application details:', error.response?.data || error.message);
+      return null;
     }
   }
 

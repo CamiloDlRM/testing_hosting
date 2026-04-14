@@ -221,7 +221,7 @@ export const createAplicacion = async (
       // Iniciar el deployment en Coolify automáticamente
       try {
         console.log(`🚀 Iniciando deployment de app ${nombre} (ID: ${coolifyApp.id})`);
-        await coolifyService.deployApplication(coolifyApp.id);
+        const deployResult = await coolifyService.deployApplication(coolifyApp.id);
 
         // Actualizar estado a DEPLOYING
         await prisma.aplicacion.update({
@@ -229,11 +229,12 @@ export const createAplicacion = async (
           data: { estado: EstadoApp.DEPLOYING },
         });
 
-        // Crear registro de deployment
+        // Guardar el UUID del deployment de Coolify en `version` para poder
+        // consultar los build logs más tarde sin depender de la API de listado.
         await prisma.deployment.create({
           data: {
             aplicacionId: updatedApp.id,
-            version: '1.0.0',
+            version: deployResult.id,   // Coolify deployment_uuid
             estado: 'IN_PROGRESS',
           },
         });
@@ -552,20 +553,20 @@ export const deployAplicacion = async (
 
     // Deployar en Coolify
     try {
-      const deployment = await coolifyService.deployApplication(aplicacion.coolifyAppId);
+      const deployResult = await coolifyService.deployApplication(aplicacion.coolifyAppId);
 
-      // Crear registro de deployment
+      // Guardar el UUID del deployment de Coolify para build logs
       await prisma.deployment.create({
         data: {
           aplicacionId: aplicacion.id,
-          version: new Date().toISOString(),
+          version: deployResult.id,   // Coolify deployment_uuid
           estado: 'IN_PROGRESS',
         },
       });
 
       return res.status(200).json({
         success: true,
-        data: deployment,
+        data: deployResult,
         message: 'Deployment started successfully',
       });
     } catch (coolifyError: any) {
