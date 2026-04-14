@@ -13,7 +13,8 @@
       "Bash(rtk prisma:*)",
       "Bash(rtk read:*)",
       "Bash(npm show:*)",
-      "Bash(npm audit:*)"
+      "Bash(npm audit:*)",
+      "Bash(rtk git:*)"
     ],
     "deny": [],
     "ask": []
